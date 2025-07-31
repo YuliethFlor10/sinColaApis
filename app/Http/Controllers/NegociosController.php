@@ -5,61 +5,47 @@ namespace App\Http\Controllers;
 use App\Models\Negocios;
 use Illuminate\Http\Request;
 
-class NegociosController extends Controller
+
+
+class NegocioController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        //
+        return Negocios::with('servicios')->get();
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
+        $request->validate([
+            'nombre_negocio' => 'required',
+            'direccion_negocio' => 'required',
+            'ciudad' => 'required',
+            'calle' => 'required',
+            'carrera' => 'required',
+            'tipo_negocio' => 'required',
+            'horario' => 'required',
+            'telefono' => 'required'
+        ]);
+
+        return Negocios::create($request->all());
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Negocios $negocios)
+    public function show($id)
     {
-        //
+        return Negocios::with('servicios')->findOrFail($id);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Negocios $negocios)
+    public function update(Request $request, $id)
     {
-        //
+        $negocio = Negocios::findOrFail($id);
+        $negocio->update($request->all());
+        return $negocio;
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Negocios $negocios)
+    public function destroy($id)
     {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Negocios $negocios)
-    {
-        //
+        Negocios::destroy($id);
+        return response()->json(null, 204);
     }
 }
+

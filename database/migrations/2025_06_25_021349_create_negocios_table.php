@@ -4,24 +4,17 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
-    /**
-     * Run the migrations.
-     */
-    public function up(): void
-    {
-        Schema::create('negocios', function (Blueprint $table) {
-            $table->id();
-            $table->timestamps();
-        });
-    }
+Schema::create('negocios', function (Blueprint $table) {
+    $table->id('id_negocio');
+    $table->string('nombre_negocio');
+    $table->string('direccion_negocio');
+    $table->string('ciudad');
+    $table->string('calle');
+    $table->string('carrera');
+    $table->string('tipo_negocio');
+    $table->string('horario');
+    $table->string('logo')->nullable();
+    $table->string('telefono');
+    $table->timestamps();
+});
 
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
-    {
-        Schema::dropIfExists('negocios');
-    }
-};

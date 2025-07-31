@@ -4,62 +4,45 @@ namespace App\Http\Controllers;
 
 use App\Models\Servicio;
 use Illuminate\Http\Request;
+use function App\Models\servicios;
+
 
 class ServicioController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        //
+        return servicios()->with('negocio')->get();
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
+        $request->validate([
+            'nombre_servicio' => 'required',
+            'precio' => 'required|numeric',
+            'duracion' => 'required|integer',
+            'categoria' => 'required',
+            'negocio_id' => 'required|exists:negocios,id_negocio'
+        ]);
+
+        return servicios()->create($request->all());
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Servicio $servicio)
+    public function show($id)
     {
-        //
+        return servicios()->with('negocio')->findOrFail($id);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Servicio $servicio)
+    public function update(Request $request, $id)
     {
-        //
+        $servicio = servicios()->findOrFail($id);
+        $servicio->update($request->all());
+        return $servicio;
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Servicio $servicio)
+    public function destroy($id)
     {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Servicio $servicio)
-    {
-        //
+        servicios()->destroy($id);
+        return response()->json(null, 204);
     }
 }
+

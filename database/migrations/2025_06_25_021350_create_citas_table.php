@@ -11,10 +11,18 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('citas', function (Blueprint $table) {
-            $table->id();
-            $table->timestamps();
-        });
+     Schema::create('citas', function (Blueprint $table) {
+    $table->id('id_cita');
+    $table->foreignId('usuario_id')->constrained('usuarios', 'id_usuario')->onDelete('cascade');
+    $table->foreignId('servicio_id')->constrained('servicios', 'id_servicio')->onDelete('cascade');
+    $table->date('fecha');
+    $table->time('hora');
+    $table->integer('duracion_cita');
+    $table->string('estado')->default('pendiente');
+    $table->text('observaciones')->nullable();
+    $table->timestamps();
+});
+
     }
 
     /**

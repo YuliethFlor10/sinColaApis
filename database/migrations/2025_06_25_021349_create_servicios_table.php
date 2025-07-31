@@ -11,10 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('servicios', function (Blueprint $table) {
-            $table->id();
-            $table->timestamps();
-        });
+       Schema::create('servicios', function (Blueprint $table) {
+    $table->id('id_servicio');
+    $table->string('nombre_servicio');
+    $table->text('descripcion')->nullable();
+    $table->decimal('precio', 10, 2);
+    $table->integer('duracion');
+    $table->string('categoria');
+    $table->foreignId('negocio_id')->constrained('negocios', 'id_negocio')->onDelete('cascade');
+    $table->timestamps();
+});
+
     }
 
     /**
