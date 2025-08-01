@@ -2,47 +2,57 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Model;
 
-class User extends Authenticatable
+class User extends Model
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
-
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
     protected $fillable = [
-        'name',
+        'nombres',
+        'apellidos',
         'email',
-        'password',
+        'nacimiento',
+        'edad',
+        'genero',
+        'clave',
+        'tipo_identificacion',
+        'identificacion',
+        'celular',
+        'telefono',
+        'direccion',
+        'terminos_condiciones',
+        'estados',
+        'roles',
+        'negocios',
+        'servicios'
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
-
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
+    public function category()
     {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
+        return $this->belongsTo(Category::class, 'tipo_identificacion', '_id');
+    }
+
+    public function status()
+    {
+        return $this->belongsTo(Status::class, 'estados', '_id');
+    }
+
+    public function role()
+    {
+        return $this->belongsTo(Role::class, 'roles', '_id');
+    }
+
+    public function business()
+    {
+        return $this->belongsTo(Business::class, 'negocios', '_id');
+    }
+
+    public function service()
+    {
+        return $this->belongsTo(Service::class, 'servicios', '_id');
+    }
+
+    public function agendas()
+    {
+        return $this->hasMany(Agenda::class, 'usuarios', '_id');
     }
 }
