@@ -12,7 +12,7 @@ class PlanController
      */
     public function index()
     {
-        //
+        return response()->json(['message' => 'Hello from index plan']);
     }
 
     /**

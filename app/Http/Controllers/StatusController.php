@@ -12,7 +12,7 @@ class StatusController
      */
     public function index()
     {
-        //
+        return response()->json(['message' => 'Hello from index status']);
     }
 
     /**

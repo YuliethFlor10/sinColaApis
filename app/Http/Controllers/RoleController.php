@@ -12,7 +12,7 @@ class RoleController
      */
     public function index()
     {
-        //
+        return response()->json(['message' => 'Hello from index role']);
     }
 
     /**

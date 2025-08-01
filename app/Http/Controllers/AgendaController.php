@@ -12,7 +12,7 @@ class AgendaController
      */
     public function index()
     {
-        //
+        return response()->json(['message' => 'Hello from index agenda']);
     }
 
     /**
