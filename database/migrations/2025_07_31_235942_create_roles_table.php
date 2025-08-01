@@ -14,7 +14,11 @@ return new class extends Migration
             $table->timestamp('actualizado_en')->nullable();
             $table->string('nombre');
             $table->text('descripcion');
+<<<<<<< HEAD
             $table->string('estados');
+=======
+            $table->integer('estados');
+>>>>>>> 82fd9fd4d623a7ab665b1d6b02e6b51a0e6984ee
 
             // Foreign keys
             $table->foreign('estados')->references('_id')->on('statuses')->onDelete('no action')->onUpdate('no action');
