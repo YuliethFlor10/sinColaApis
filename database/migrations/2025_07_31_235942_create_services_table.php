@@ -6,21 +6,29 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up(): void
+    public function up()
     {
         Schema::create('services', function (Blueprint $table) {
-            $table->id();
-            $table->timestamps();
+            $table->string('_id')->primary();
+            $table->timestamp('creado_en')->nullable();
+            $table->timestamp('actualizado_en')->nullable();
+            $table->string('abreviatura');
+            $table->string('nombre');
+            $table->text('descripcion');
+            $table->integer('tiempo_estimado');
+            $table->string('tipos');
+            $table->integer('estados');
+            $table->string('negocios');
+            $table->decimal('precio', 10, 2);
+
+            // Foreign keys
+            $table->foreign('tipos')->references('_id')->on('categories')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('estados')->references('_id')->on('statuses')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('negocios')->references('_id')->on('businesses')->onDelete('no action')->onUpdate('no action');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
+    public function down()
     {
         Schema::dropIfExists('services');
     }

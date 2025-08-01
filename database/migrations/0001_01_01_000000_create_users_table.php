@@ -6,44 +6,41 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up(): void
+    public function up()
     {
         Schema::create('users', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
-            $table->rememberToken();
-            $table->timestamps();
-        });
+            $table->string('_id')->primary();
+            $table->timestamp('creado_en')->nullable();
+            $table->timestamp('actualizado_en')->nullable();
+            $table->string('nombres');
+            $table->string('apellidos');
+            $table->string('email');
+            $table->date('nacimiento');
+            $table->integer('edad');
+            $table->string('genero');
+            $table->string('clave');
+            $table->string('tipo_identificacion');
+            $table->string('identificacion');
+            $table->integer('celular');
+            $table->string('telefono')->nullable();
+            $table->string('direccion');
+            $table->boolean('terminos_condiciones');
+            $table->integer('estados');
+            $table->string('roles');
+            $table->string('negocios');
+            $table->string('servicios');
 
-        Schema::create('password_reset_tokens', function (Blueprint $table) {
-            $table->string('email')->primary();
-            $table->string('token');
-            $table->timestamp('created_at')->nullable();
-        });
-
-        Schema::create('sessions', function (Blueprint $table) {
-            $table->string('id')->primary();
-            $table->foreignId('user_id')->nullable()->index();
-            $table->string('ip_address', 45)->nullable();
-            $table->text('user_agent')->nullable();
-            $table->longText('payload');
-            $table->integer('last_activity')->index();
+            // Foreign keys
+            $table->foreign('tipo_identificacion')->references('_id')->on('categories')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('estados')->references('_id')->on('statuses')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('roles')->references('_id')->on('roles')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('negocios')->references('_id')->on('businesses')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('servicios')->references('_id')->on('services')->onDelete('no action')->onUpdate('no action');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
+    public function down()
     {
         Schema::dropIfExists('users');
-        Schema::dropIfExists('password_reset_tokens');
-        Schema::dropIfExists('sessions');
     }
 };
