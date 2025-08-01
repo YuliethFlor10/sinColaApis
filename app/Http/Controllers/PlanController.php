@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Citas;
+use App\Models\Plan;
 use Illuminate\Http\Request;
 
-class CitasController extends Controller
+class PlanController
 {
     /**
      * Display a listing of the resource.
@@ -34,7 +34,7 @@ class CitasController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Citas $citas)
+    public function show(Plan $plan)
     {
         //
     }
@@ -42,7 +42,7 @@ class CitasController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Citas $citas)
+    public function edit(Plan $plan)
     {
         //
     }
@@ -50,7 +50,7 @@ class CitasController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Citas $citas)
+    public function update(Request $request, Plan $plan)
     {
         //
     }
@@ -58,7 +58,7 @@ class CitasController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Citas $citas)
+    public function destroy(Plan $plan)
     {
         //
     }

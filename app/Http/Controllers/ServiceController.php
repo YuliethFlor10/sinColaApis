@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Negocios;
+use App\Models\Service;
 use Illuminate\Http\Request;
 
-class NegociosController extends Controller
+class ServiceController
 {
     /**
      * Display a listing of the resource.
@@ -34,7 +34,7 @@ class NegociosController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Negocios $negocios)
+    public function show(Service $service)
     {
         //
     }
@@ -42,7 +42,7 @@ class NegociosController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Negocios $negocios)
+    public function edit(Service $service)
     {
         //
     }
@@ -50,7 +50,7 @@ class NegociosController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Negocios $negocios)
+    public function update(Request $request, Service $service)
     {
         //
     }
@@ -58,7 +58,7 @@ class NegociosController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Negocios $negocios)
+    public function destroy(Service $service)
     {
         //
     }

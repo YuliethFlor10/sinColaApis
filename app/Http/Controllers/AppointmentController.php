@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Estados;
+use App\Models\Appointment;
 use Illuminate\Http\Request;
 
-class EstadosController extends Controller
+class AppointmentController
 {
     /**
      * Display a listing of the resource.
@@ -34,7 +34,7 @@ class EstadosController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Estados $estados)
+    public function show(Appointment $appointment)
     {
         //
     }
@@ -42,7 +42,7 @@ class EstadosController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Estados $estados)
+    public function edit(Appointment $appointment)
     {
         //
     }
@@ -50,7 +50,7 @@ class EstadosController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Estados $estados)
+    public function update(Request $request, Appointment $appointment)
     {
         //
     }
@@ -58,7 +58,7 @@ class EstadosController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Estados $estados)
+    public function destroy(Appointment $appointment)
     {
         //
     }

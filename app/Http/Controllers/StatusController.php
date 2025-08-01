@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Servicio;
+use App\Models\Status;
 use Illuminate\Http\Request;
 
-class ServicioController extends Controller
+class StatusController
 {
     /**
      * Display a listing of the resource.
@@ -34,7 +34,7 @@ class ServicioController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Servicio $servicio)
+    public function show(Status $status)
     {
         //
     }
@@ -42,7 +42,7 @@ class ServicioController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Servicio $servicio)
+    public function edit(Status $status)
     {
         //
     }
@@ -50,7 +50,7 @@ class ServicioController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Servicio $servicio)
+    public function update(Request $request, Status $status)
     {
         //
     }
@@ -58,7 +58,7 @@ class ServicioController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Servicio $servicio)
+    public function destroy(Status $status)
     {
         //
     }
