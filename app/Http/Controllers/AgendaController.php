@@ -5,61 +5,51 @@ namespace App\Http\Controllers;
 use App\Models\Agenda;
 use Illuminate\Http\Request;
 
-class AgendaController
+class AgendaController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        return response()->json(['message' => 'Hello from index agenda']);
+        return Agenda::with(['negocio', 'estado'])->get();
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
+        $data = $request->validate([
+            'dia' => 'required|string',
+            'hora_inicio' => 'required|date_format:H:i:s',
+            'hora_fin' => 'required|date_format:H:i:s',
+            'negocios_id' => 'required|exists:negocios,id',
+            'estados_id' => 'required|exists:estados,id',
+        ]);
+
+        return Agenda::create($data);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Agenda $agenda)
+    public function show($id)
     {
-        //
+        return Agenda::with(['negocio', 'estado'])->findOrFail($id);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Agenda $agenda)
+    public function update(Request $request, $id)
     {
-        //
+        $agenda = Agenda::findOrFail($id);
+
+        $data = $request->validate([
+            'dia' => 'sometimes|string',
+            'hora_inicio' => 'sometimes|date_format:H:i:s',
+            'hora_fin' => 'sometimes|date_format:H:i:s',
+            'negocios_id' => 'sometimes|exists:negocios,id',
+            'estados_id' => 'sometimes|exists:estados,id',
+        ]);
+
+        $agenda->update($data);
+        return $agenda;
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Agenda $agenda)
+    public function destroy($id)
     {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Agenda $agenda)
-    {
-        //
+        Agenda::findOrFail($id)->delete();
+        return response()->json(['message' => 'Agenda eliminada']);
     }
 }
+

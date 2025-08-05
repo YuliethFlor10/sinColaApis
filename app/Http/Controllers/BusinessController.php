@@ -5,61 +5,60 @@ namespace App\Http\Controllers;
 use App\Models\Business;
 use Illuminate\Http\Request;
 
-class BusinessController
+class BusinessController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        return response()->json(['message' => 'Hello from index business']);
+        return Business::with(['status', 'plan'])->get();
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
+        $data = $request->validate([
+            'nombre' => 'required|string',
+            'nit' => 'required|string|unique:businesses,nit',
+            'direccion' => 'required|string',
+            'telefono' => 'nullable|string',
+            'correo' => 'nullable|email',
+            'representante' => 'nullable|string',
+            'descripcion' => 'nullable|string',
+            'planes_id' => 'required|exists:planes,id',
+            'status_id' => 'required|exists:statuses,id',
+        ]);
+
+        return Business::create($data);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Business $business)
+    public function show($id)
     {
-        //
+        return Business::with(['status', 'plan'])->findOrFail($id);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Business $business)
+    public function update(Request $request, $id)
     {
-        //
+        $business = Business::findOrFail($id);
+
+        $data = $request->validate([
+            'nombre' => 'sometimes|string',
+            'nit' => 'sometimes|string|unique:businesses,nit,' . $id,
+            'direccion' => 'sometimes|string',
+            'telefono' => 'nullable|string',
+            'correo' => 'nullable|email',
+            'representante' => 'nullable|string',
+            'descripcion' => 'nullable|string',
+            'planes_id' => 'sometimes|exists:planes,id',
+            'status_id' => 'sometimes|exists:statuses,id',
+        ]);
+
+        $business->update($data);
+        return $business;
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Business $business)
+    public function destroy($id)
     {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Business $business)
-    {
-        //
+        Business::findOrFail($id)->delete();
+        return response()->json(['message' => 'Negocio eliminado']);
     }
 }
+
+

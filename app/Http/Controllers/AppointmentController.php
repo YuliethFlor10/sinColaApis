@@ -2,64 +2,56 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\App;
 use App\Models\Appointment;
 use Illuminate\Http\Request;
 
-class AppointmentController
+class AppointmentController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        return response()->json(['message' => 'Hello from index appointment']);
+        return Appointment::with(['usuario', 'negocio', 'servicio', 'estado'])->get();
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
+        $data = $request->validate([
+            'fecha' => 'required|date',
+            'hora' => 'required|date_format:H:i:s',
+            'usuarios_id' => 'required|exists:usuarios,id',
+            'negocios_id' => 'required|exists:negocios,id',
+            'servicios_id' => 'required|exists:servicios,id',
+            'estados_id' => 'required|exists:estados,id',
+        ]);
+
+        return Appointment::create($data);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Appointment $appointment)
+    public function show($id)
     {
-        //
+        return Appointment::with(['usuario', 'negocio', 'servicio', 'estado'])->findOrFail($id);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Appointment $appointment)
+    public function update(Request $request, $id)
     {
-        //
+        $Appointment = Appointment::findOrFail($id);
+
+        $data = $request->validate([
+            'fecha' => 'sometimes|date',
+            'hora' => 'sometimes|date_format:H:i:s',
+            'usuarios_id' => 'sometimes|exists:usuarios,id',
+            'negocios_id' => 'sometimes|exists:negocios,id',
+            'servicios_id' => 'sometimes|exists:servicios,id',
+            'estados_id' => 'sometimes|exists:estados,id',
+        ]);
+
+        $Appointment->update($data);
+        return $Appointment;
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Appointment $appointment)
+    public function destroy($id)
     {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Appointment $appointment)
-    {
-        //
+        Appointment::findOrFail($id)->delete();
+        return response()->json(['message' => 'Appointment eliminada']);
     }
 }

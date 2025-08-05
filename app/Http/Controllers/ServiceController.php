@@ -5,61 +5,52 @@ namespace App\Http\Controllers;
 use App\Models\Service;
 use Illuminate\Http\Request;
 
-class ServiceController
+class ServicioController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        return response()->json(['message' => 'Hello from index service']);
+        return Service::with(['estado', 'tipo'])->get();
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
+        $data = $request->validate([
+            'nombre' => 'required|string',
+            'descripcion' => 'nullable|string',
+            'precio' => 'required|numeric',
+            'duracion' => 'required|integer',
+            'tipos_id' => 'required|exists:tipos,id',
+            'estados_id' => 'required|exists:estados,id',
+        ]);
+
+        return Service::create($data);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Service $service)
+    public function show($id)
     {
-        //
+        return Service::with(['estado', 'tipo'])->findOrFail($id);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Service $service)
+    public function update(Request $request, $id)
     {
-        //
+        $servicio = Service::findOrFail($id);
+
+        $data = $request->validate([
+            'nombre' => 'sometimes|string',
+            'descripcion' => 'nullable|string',
+            'precio' => 'sometimes|numeric',
+            'duracion' => 'sometimes|integer',
+            'tipos_id' => 'sometimes|exists:tipos,id',
+            'estados_id' => 'sometimes|exists:estados,id',
+        ]);
+
+        $servicio->update($data);
+        return $servicio;
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Service $service)
+    public function destroy($id)
     {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Service $service)
-    {
-        //
+        Service::findOrFail($id)->delete();
+        return response()->json(['message' => 'Servicio eliminado']);
     }
 }

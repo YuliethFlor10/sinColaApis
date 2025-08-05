@@ -5,61 +5,60 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use Illuminate\Http\Request;
 
-class CategoryController
+class CategoryController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    // Listar todas las categorías con relaciones
     public function index()
     {
-        return response()->json(['message' => 'Hello from index category']);
+        return Category::with(['status', 'business'])->get();
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
+    // Crear una nueva categoría
     public function store(Request $request)
     {
-        //
+        $data = $request->validate([
+            'nombre' => 'required|string|max:255',
+            'abreviatura' => 'nullable|string|max:50',
+            'descripcion' => 'nullable|string',
+            'grupo' => 'nullable|string|max:100',
+            'negocios' => 'required|exists:businesses,_id',
+            'estados' => 'required|exists:statuses,_id',
+        ]);
+
+        $category = Category::create($data);
+        return response()->json($category->load(['status', 'business']), 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Category $category)
+    // Mostrar una categoría específica
+    public function show($id)
     {
-        //
+        return Category::with(['status', 'business'])->findOrFail($id);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Category $category)
+    // Actualizar una categoría existente
+    public function update(Request $request, $id)
     {
-        //
+        $category = Category::findOrFail($id);
+
+        $data = $request->validate([
+            'nombre' => 'sometimes|string|max:255',
+            'abreviatura' => 'nullable|string|max:50',
+            'descripcion' => 'nullable|string',
+            'grupo' => 'nullable|string|max:100',
+            'negocios' => 'sometimes|exists:businesses,_id',
+            'estados' => 'sometimes|exists:statuses,_id',
+        ]);
+
+        $category->update($data);
+        return response()->json($category->load(['status', 'business']));
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Category $category)
+    // Eliminar una categoría
+    public function destroy($id)
     {
-        //
-    }
+        $category = Category::findOrFail($id);
+        $category->delete();
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Category $category)
-    {
-        //
+        return response()->json(['message' => 'Categoría eliminada correctamente']);
     }
 }

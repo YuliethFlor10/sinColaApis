@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Status;
 use Illuminate\Http\Request;
 
-class StatusController extends Controller
+class EstadoController extends Controller
 {
     public function index()
     {
@@ -14,39 +14,38 @@ class StatusController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
-            'nombre' => 'required|string|max:255',
+        $data = $request->validate([
+            'nombre' => 'required|string',
+            'descripcion' => 'nullable|string',
+            'grupo' => 'nullable|string',
         ]);
 
-        return Status::create($request->all());
+        return Status::create($data);
     }
 
-    public function show(Status $status)
+    public function show($id)
     {
-        return $status;
+        return Status::findOrFail($id);
     }
 
-    public function edit(Status $status)
+    public function update(Request $request, $id)
     {
-        return $status;
-    }
+        $status  = Status::findOrFail($id);
 
-    public function update(Request $request, Status $status)
-    {
-        $request->validate([
-            'nombre' => 'sometimes|required|string|max:255',
+        $data = $request->validate([
+            'nombre' => 'sometimes|string',
+            'descripcion' => 'nullable|string',
+            'grupo' => 'nullable|string',
         ]);
 
-        $status->update($request->all());
+        $status->update($data);
         return $status;
     }
 
-    public function destroy(Status $status)
+    public function destroy($id)
     {
-        $status->delete();
-        return response()->json(null, 204);
+        Status::findOrFail($id)->delete();
+        return response()->json(['message' => 'Estado eliminado']);
     }
 }
-
-
 

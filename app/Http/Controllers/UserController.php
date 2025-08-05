@@ -5,72 +5,68 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 
-class UserController extends Controller
+class UsuarioController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        return User::all();
+        return User::with(['negocio', 'rol', 'estado'])->get();
     }
 
-    /**
-     * Store a newly created user in storage.
-     */
     public function store(Request $request)
     {
-        $request->validate([
-            'nombre' => 'required|string|max:255',
-            'correo' => 'required|email|unique:users,correo',
-            'contraseña' => 'required|string|min:6',
-            'telefono' => 'required|string|max:20',
-            'rol' => 'required|string'
+        $data = $request->validate([
+            'nombre' => 'required|string',
+            'apellido' => 'required|string',
+            'documento' => 'required|string|unique:usuarios',
+            'correo' => 'required|email|unique:usuarios',
+            'telefono' => 'nullable|string',
+            'password' => 'required|string',
+            'verificado' => 'boolean',
+            'negocios_id' => 'required|exists:negocios,id',
+            'roles_id' => 'required|exists:roles,id',
+            'estados_id' => 'required|exists:estados,id',
         ]);
 
-        return User::create($request->all());
+        $data['password'] = bcrypt($data['password']);
+
+        return User::create($data);
     }
 
-    /**
-     * Display the specified user.
-     */
-    public function show(User $user)
+    public function show($id)
     {
-        return $user;
+        return User::with(['negocio', 'rol', 'estado'])->findOrFail($id);
     }
 
-    /**
-     * Show the form for editing the specified user.
-     */
-    public function edit(User $user)
+    public function update(Request $request, $id)
     {
-        return $user;
-    }
+        $usuario = User::findOrFail($id);
 
-    /**
-     * Update the specified user in storage.
-     */
-    public function update(Request $request, User $user)
-    {
-        $request->validate([
-            'nombre' => 'sometimes|required|string|max:255',
-            'correo' => 'sometimes|required|email|unique:users,correo,' . $user->id,
-            'telefono' => 'sometimes|required|string|max:20',
-            'rol' => 'sometimes|required|string'
+        $data = $request->validate([
+            'nombre' => 'sometimes|string',
+            'apellido' => 'sometimes|string',
+            'documento' => 'sometimes|string|unique:usuarios,documento,' . $id,
+            'correo' => 'sometimes|email|unique:usuarios,correo,' . $id,
+            'telefono' => 'nullable|string',
+            'password' => 'nullable|string',
+            'verificado' => 'boolean',
+            'negocios_id' => 'sometimes|exists:negocios,id',
+            'roles_id' => 'sometimes|exists:roles,id',
+            'estados_id' => 'sometimes|exists:estados,id',
         ]);
 
-        $user->update($request->all());
-        return $user;
+        if (isset($data['password'])) {
+            $data['password'] = bcrypt($data['password']);
+        }
+
+        $usuario->update($data);
+        return $usuario;
     }
 
-    /**
-     * Remove the specified user from storage.
-     */
-    public function destroy(User $user)
+    public function destroy($id)
     {
-        $user->delete();
-        return response()->json(null, 204);
+        $usuario = User::findOrFail($id);
+        $usuario->delete();
+
+        return response()->json(['message' => 'Usuario eliminado']);
     }
 }
-
-
