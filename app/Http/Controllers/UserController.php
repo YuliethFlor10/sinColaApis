@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 
-class UsuarioController extends Controller
+class UserController extends Controller
 {
     public function index()
     {
@@ -39,7 +39,7 @@ class UsuarioController extends Controller
 
     public function update(Request $request, $id)
     {
-        $usuario = User::findOrFail($id);
+        $user = User::findOrFail($id);
 
         $data = $request->validate([
             'nombre' => 'sometimes|string',
@@ -58,14 +58,15 @@ class UsuarioController extends Controller
             $data['password'] = bcrypt($data['password']);
         }
 
-        $usuario->update($data);
-        return $usuario;
+        $user->update($data);
+        return $user;
     }
 
     public function destroy($id)
     {
-        $usuario = User::findOrFail($id);
-        $usuario->delete();
+        $user
+         = User::findOrFail($id);
+        $user->delete();
 
         return response()->json(['message' => 'Usuario eliminado']);
     }

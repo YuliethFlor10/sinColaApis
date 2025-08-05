@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Status;
 use Illuminate\Http\Request;
 
-class EstadoController extends Controller
+class StatusController extends Controller
 {
     public function index()
     {
