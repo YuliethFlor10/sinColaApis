@@ -1,24 +1,24 @@
-use App\Http\Controllers\UsuarioController;
-use App\Http\Controllers\NegocioController;
-use App\Http\Controllers\ServicioController;
-use App\Http\Controllers\CitaController;
+<?php
 
-Route::apiResource('usuarios', UsuarioController::class);
-Route::apiResource('negocios', NegocioController::class);
-Route::apiResource('servicios', ServicioController::class);
-Route::apiResource('citas', CitaController::class);
+use App\Http\Controllers\AgendaController;
+use App\Http\Controllers\AppointmentController;
+use App\Http\Controllers\BusinessController;
+use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\PlanController;
+use App\Http\Controllers\RoleController;
+use App\Http\Controllers\ServiceController;
+use App\Http\Controllers\StatusController;
+use App\Http\Controllers\UserController;
+use Illuminate\Support\Facades\Route;
 
-// Ejemplo de ruta con scopes
-Route::get('citas/estado/{estado}', [CitaController::class, 'filtrarPorEstado']);
 
-Route::get('servicios/categoria/{categoria}', function($categoria) {
-    return App\Models\Servicio::categoria($categoria)->get();
-});
 
-Route::get('servicios/negocio/{negocio_id}', function($negocio_id) {
-    return App\Models\Servicio::negocio($negocio_id)->get();
-});
-
-Route::get('usuarios/rol/{rol}', function($rol) {
-    return App\Models\Usuario::rol($rol)->get();
-});
+Route::apiResource('estados', StatusController::class);
+Route::apiResource('planes', PlanController::class);
+Route::apiResource('roles', RoleController::class);
+Route::apiResource('negocios', BusinessController::class);
+Route::apiResource('usuarios', UserController::class);
+Route::apiResource('tipos', CategoryController::class);
+Route::apiResource('servicios', ServiceController::class);
+Route::apiResource('agendas', AgendaController::class);
+Route::apiResource('citas', AppointmentController::class);

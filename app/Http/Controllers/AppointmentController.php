@@ -2,17 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Tipos;
+use App\Models\Appointment;
 use Illuminate\Http\Request;
 
-class TiposController extends Controller
+class AppointmentController
 {
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        //
+        return response()->json(['message' => 'Hello from index appointment']);
     }
 
     /**
@@ -34,7 +34,7 @@ class TiposController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Tipos $tipos)
+    public function show(Appointment $appointment)
     {
         //
     }
@@ -42,7 +42,7 @@ class TiposController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Tipos $tipos)
+    public function edit(Appointment $appointment)
     {
         //
     }
@@ -50,7 +50,7 @@ class TiposController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Tipos $tipos)
+    public function update(Request $request, Appointment $appointment)
     {
         //
     }
@@ -58,7 +58,7 @@ class TiposController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Tipos $tipos)
+    public function destroy(Appointment $appointment)
     {
         //
     }

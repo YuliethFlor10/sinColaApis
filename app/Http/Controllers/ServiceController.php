@@ -2,17 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Planes;
+use App\Models\Service;
 use Illuminate\Http\Request;
 
-class PlanesController extends Controller
+class ServiceController
 {
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        //
+        return response()->json(['message' => 'Hello from index service']);
     }
 
     /**
@@ -34,7 +34,7 @@ class PlanesController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Planes $planes)
+    public function show(Service $service)
     {
         //
     }
@@ -42,7 +42,7 @@ class PlanesController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Planes $planes)
+    public function edit(Service $service)
     {
         //
     }
@@ -50,7 +50,7 @@ class PlanesController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Planes $planes)
+    public function update(Request $request, Service $service)
     {
         //
     }
@@ -58,7 +58,7 @@ class PlanesController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Planes $planes)
+    public function destroy(Service $service)
     {
         //
     }

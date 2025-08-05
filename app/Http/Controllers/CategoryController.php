@@ -2,17 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Estados;
+use App\Models\Category;
 use Illuminate\Http\Request;
 
-class EstadosController extends Controller
+class CategoryController
 {
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        //
+        return response()->json(['message' => 'Hello from index category']);
     }
 
     /**
@@ -34,7 +34,7 @@ class EstadosController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Estados $estados)
+    public function show(Category $category)
     {
         //
     }
@@ -42,7 +42,7 @@ class EstadosController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Estados $estados)
+    public function edit(Category $category)
     {
         //
     }
@@ -50,7 +50,7 @@ class EstadosController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Estados $estados)
+    public function update(Request $request, Category $category)
     {
         //
     }
@@ -58,7 +58,7 @@ class EstadosController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Estados $estados)
+    public function destroy(Category $category)
     {
         //
     }
