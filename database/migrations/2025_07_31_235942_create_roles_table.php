@@ -15,8 +15,7 @@ return new class extends Migration
             $table->string('nombre');
             $table->text('descripcion');
             $table->string('estados');
-            $table->integer('estados');
-
+           
             // Foreign keys
             $table->foreign('estados')->references('_id')->on('statuses')->onDelete('no action')->onUpdate('no action');
         });

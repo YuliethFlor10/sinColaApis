@@ -16,7 +16,7 @@ return new class extends Migration
             $table->json('caracteristicas');
             $table->integer('descuentos');
             $table->string('estados');
-            $table->integer('estados');
+        
 
             // Foreign keys
             $table->foreign('estados')->references('_id')->on('statuses')->onDelete('no action')->onUpdate('no action');
