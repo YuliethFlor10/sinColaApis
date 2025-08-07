@@ -9,69 +9,47 @@ class PlanController extends Controller
 {
     public function index()
     {
-        return Plan::with(['usuario', 'servicio'])->get();
+        return Plan::with(['negocio', 'estado'])->get();
     }
 
     public function store(Request $request)
     {
-        $request->validate([
-            'usuario_id' => 'required',
-            'servicio_id' => 'required',
-            'fecha' => 'required|date',
-            'hora' => 'required',
-            'duracion_cita' => 'required|integer',
-            'estado' => 'string',
+        $data = $request->validate([
+            'nombre' => 'required|string|max:255',
+            'caracteristicas' => 'nullable|json',
+            'descripcion' => 'nullable|string',
+            'negocios_id' => 'required|exists:businesses,id',
+            'estados_id' => 'required|exists:estados,id'
         ]);
 
-        return Plan::create($request->all());
+        return response()->json(Plan::create($data)->load(['negocio', 'estado']), 201);
     }
 
-    public function show(Plan $plan)
+    public function show($id)
     {
-        return $plan->load(['usuario', 'servicio']);
+        return Plan::with(['negocio', 'estado'])->findOrFail($id);
     }
 
-    public function edit(Plan $plan)
+    public function update(Request $request, $id)
     {
-        return $plan;
+        $plan = Plan::findOrFail($id);
+
+        $data = $request->validate([
+            'nombre' => 'sometimes|string|max:255',
+            'caracteristicas' => 'nullable|json',
+            'descripcion' => 'nullable|string',
+            'negocios_id' => 'sometimes|exists:businesses,id',
+            'estados_id' => 'sometimes|exists:estados,id'
+        ]);
+
+        $plan->update($data);
+        return response()->json($plan->load(['negocio', 'estado']));
     }
 
-    public function update(Request $request, Plan $plan)
+    public function destroy($id)
     {
-        $plan->update($request->all());
-        return $plan;
-    }
-
-    public function destroy(Plan $plan)
-    {
+        $plan = Plan::findOrFail($id);
         $plan->delete();
-        return response()->json(null, 204);
-    }
-
-    public function PlanPorUsuario($usuarioId)
-    {
-        return Plan::where('usuario_id', $usuarioId)->with(['usuario', 'servicio'])->get();
-    }
-
-    public function PlanPorServicio($servicioId)
-    {
-        return Plan::where('servicio_id', $servicioId)->with(['usuario', 'servicio'])->get();
-    }
-
-    public function PlanPorNegocio($negocioId)
-    {
-        return Plan::whereHas('servicio', function ($query) use ($negocioId) {
-            $query->where('negocio_id', $negocioId);
-        })->with(['usuario', 'servicio'])->get();
-    }
-
-    public function PlanPendientes()
-    {
-        return Plan::where('estado', 'pendiente')->with(['usuario', 'servicio'])->get();
-    }
-
-    public function PlanCompletadas()
-    {
-        return Plan::where('estado', 'completada')->with(['usuario', 'servicio'])->get();
+        return response()->json(['message' => 'Plan eliminado correctamente']);
     }
 }

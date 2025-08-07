@@ -9,43 +9,43 @@ class RoleController extends Controller
 {
     public function index()
     {
-        return Role::all();
+        return Role::with('status')->get();
     }
 
     public function store(Request $request)
     {
-        $request->validate([
+        $data = $request->validate([
             'nombre' => 'required|string|max:255',
-            'descripcion' => 'nullable|string'
+            'descripcion' => 'nullable|string',
+            'estados_id' => 'required|exists:estados,id'
         ]);
 
-        return Role::create($request->all());
+        return response()->json(Role::create($data)->load('estado'), 201);
     }
 
-    public function show(Role $role)
+    public function show($id)
     {
-        return $role;
+        return Role::with('estado')->findOrFail($id);
     }
 
-    public function edit(Role $role)
+    public function update(Request $request, $id)
     {
-        return $role;
-    }
+        $role = Role::findOrFail($id);
 
-    public function update(Request $request, Role $role)
-    {
-        $request->validate([
-            'nombre' => 'sometimes|required|string|max:255',
-            'descripcion' => 'nullable|string'
+        $data = $request->validate([
+            'nombre' => 'sometimes|string|max:255',
+            'descripcion' => 'nullable|string',
+            'estados_id' => 'sometimes|exists:estados,id'
         ]);
 
-        $role->update($request->all());
-        return $role;
+        $role->update($data);
+        return response()->json($role->load('estado'));
     }
 
-    public function destroy(Role $role)
+    public function destroy($id)
     {
+        $role = Role::findOrFail($id);
         $role->delete();
-        return response()->json(null, 204);
+        return response()->json(['message' => 'Rol eliminado correctamente']);
     }
 }

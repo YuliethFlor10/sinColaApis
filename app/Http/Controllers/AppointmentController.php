@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\App;
 use App\Models\Appointment;
 use Illuminate\Http\Request;
 
@@ -16,15 +15,18 @@ class AppointmentController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
+            'nota' => 'nullable|string',
             'fecha' => 'required|date',
-            'hora' => 'required|date_format:H:i:s',
-            'usuarios_id' => 'required|exists:usuarios,id',
-            'negocios_id' => 'required|exists:negocios,id',
-            'servicios_id' => 'required|exists:servicios,id',
-            'estados_id' => 'required|exists:estados,id',
+            'tiempo_estimado' => 'required|integer|min:1',
+            'descripcion_cancelacion' => 'nullable|string',
+            'fecha_fin' => 'required|date|after_or_equal:fecha',
+            'usuarios_id' => 'required|exists:users,id',
+            'negocios_id' => 'required|exists:businesses,id',
+            'servicios_id' => 'required|exists:services,id',
+            'estados_id' => 'required|exists:estados,id'
         ]);
 
-        return Appointment::create($data);
+        return response()->json(Appointment::create($data)->load(['usuario', 'negocio', 'servicio', 'estado']), 201);
     }
 
     public function show($id)
@@ -34,24 +36,28 @@ class AppointmentController extends Controller
 
     public function update(Request $request, $id)
     {
-        $Appointment = Appointment::findOrFail($id);
+        $appointment = Appointment::findOrFail($id);
 
         $data = $request->validate([
+            'nota' => 'nullable|string',
             'fecha' => 'sometimes|date',
-            'hora' => 'sometimes|date_format:H:i:s',
-            'usuarios_id' => 'sometimes|exists:usuarios,id',
-            'negocios_id' => 'sometimes|exists:negocios,id',
-            'servicios_id' => 'sometimes|exists:servicios,id',
-            'estados_id' => 'sometimes|exists:estados,id',
+            'tiempo_estimado' => 'sometimes|integer|min:1',
+            'descripcion_cancelacion' => 'nullable|string',
+            'fecha_fin' => 'sometimes|date|after_or_equal:fecha',
+            'usuarios_id' => 'sometimes|exists:users,id',
+            'negocios_id' => 'sometimes|exists:businesses,id',
+            'servicios_id' => 'sometimes|exists:services,id',
+            'estados_id' => 'sometimes|exists:estados,id'
         ]);
 
-        $Appointment->update($data);
-        return $Appointment;
+        $appointment->update($data);
+        return response()->json($appointment->load(['usuario', 'negocio', 'servicio', 'estado']));
     }
 
     public function destroy($id)
     {
-        Appointment::findOrFail($id)->delete();
-        return response()->json(['message' => 'Appointment eliminada']);
+        $appointment = Appointment::findOrFail($id);
+        $appointment->delete();
+        return response()->json(['message' => 'Cita eliminada correctamente']);
     }
 }

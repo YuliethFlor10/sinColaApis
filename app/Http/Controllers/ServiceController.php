@@ -9,48 +9,55 @@ class ServiceController extends Controller
 {
     public function index()
     {
-        return Service::with(['estado', 'tipo'])->get();
+        return Service::with(['tipo', 'estado', 'negocio'])->get();
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
-            'nombre' => 'required|string',
+            'abreviatura' => 'nullable|string|max:10',
+            'nombre' => 'required|string|max:255',
             'descripcion' => 'nullable|string',
-            'precio' => 'required|numeric',
-            'duracion' => 'required|integer',
-            'tipos_id' => 'required|exists:tipos,id',
+            'tiempo_estimado' => 'required|integer|min:1',
+            'precio' => 'required|numeric|min:0',
+            'tipos_id' => 'required|exists:types,id',
             'estados_id' => 'required|exists:estados,id',
+            'negocios_id' => 'required|exists:businesses,id',
+            'planes_id' => 'required|exists:planes,id'
         ]);
 
-        return Service::create($data);
+        return response()->json(Service::create($data)->load(['tipo', 'estado', 'negocio']), 201);
     }
 
     public function show($id)
     {
-        return Service::with(['estado', 'tipo'])->findOrFail($id);
+        return Service::with(['tipo', 'estado', 'negocio'])->findOrFail($id);
     }
 
     public function update(Request $request, $id)
     {
-        $servicio = Service::findOrFail($id);
+        $service = Service::findOrFail($id);
 
         $data = $request->validate([
-            'nombre' => 'sometimes|string',
+            'abreviatura' => 'nullable|string|max:10',
+            'nombre' => 'sometimes|string|max:255',
             'descripcion' => 'nullable|string',
-            'precio' => 'sometimes|numeric',
-            'duracion' => 'sometimes|integer',
-            'tipos_id' => 'sometimes|exists:tipos,id',
+            'tiempo_estimado' => 'sometimes|integer|min:1',
+            'precio' => 'sometimes|numeric|min:0',
+            'tipos_id' => 'sometimes|exists:types,id',
             'estados_id' => 'sometimes|exists:estados,id',
+            'negocios_id' => 'sometimes|exists:businesses,id',
+            'planes_id' => 'sometimes|exists:planes,id'
         ]);
 
-        $servicio->update($data);
-        return $servicio;
+        $service->update($data);
+        return response()->json($service->load(['tipo', 'estado', 'negocio']));
     }
 
     public function destroy($id)
     {
-        Service::findOrFail($id)->delete();
-        return response()->json(['message' => 'Servicio eliminado']);
+        $service = Service::findOrFail($id);
+        $service->delete();
+        return response()->json(['message' => 'Servicio eliminado correctamente']);
     }
 }

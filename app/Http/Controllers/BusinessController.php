@@ -9,29 +9,27 @@ class BusinessController extends Controller
 {
     public function index()
     {
-        return Business::with(['status', 'plan'])->get();
+        return Business::with(['plan', 'estado'])->get();
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
-            'nombre' => 'required|string',
+            'nombre' => 'required|string|max:255',
             'nit' => 'required|string|unique:businesses,nit',
-            'direccion' => 'required|string',
-            'telefono' => 'nullable|string',
-            'correo' => 'nullable|email',
-            'representante' => 'nullable|string',
-            'descripcion' => 'nullable|string',
+            'direccion' => 'required|string|max:255',
+            'telefono' => 'nullable|string|max:20',
+            'representante' => 'nullable|string|max:255',
             'planes_id' => 'required|exists:planes,id',
-            'status_id' => 'required|exists:statuses,id',
+            'estados_id' => 'required|exists:estados,id'
         ]);
 
-        return Business::create($data);
+        return response()->json(Business::create($data)->load(['plan', 'estado']), 201);
     }
 
     public function show($id)
     {
-        return Business::with(['status', 'plan'])->findOrFail($id);
+        return Business::with(['plan', 'estado'])->findOrFail($id);
     }
 
     public function update(Request $request, $id)
@@ -39,25 +37,24 @@ class BusinessController extends Controller
         $business = Business::findOrFail($id);
 
         $data = $request->validate([
-            'nombre' => 'sometimes|string',
+            'nombre' => 'sometimes|string|max:255',
             'nit' => 'sometimes|string|unique:businesses,nit,' . $id,
-            'direccion' => 'sometimes|string',
-            'telefono' => 'nullable|string',
-            'correo' => 'nullable|email',
-            'representante' => 'nullable|string',
-            'descripcion' => 'nullable|string',
+            'direccion' => 'sometimes|string|max:255',
+            'telefono' => 'nullable|string|max:20',
+            'representante' => 'nullable|string|max:255',
             'planes_id' => 'sometimes|exists:planes,id',
-            'status_id' => 'sometimes|exists:statuses,id',
+            'estados_id' => 'sometimes|exists:estados,id'
         ]);
 
         $business->update($data);
-        return $business;
+        return response()->json($business->load(['plan', 'estado']));
     }
 
     public function destroy($id)
     {
-        Business::findOrFail($id)->delete();
-        return response()->json(['message' => 'Negocio eliminado']);
+        $business = Business::findOrFail($id);
+        $business->delete();
+        return response()->json(['message' => 'Negocio eliminado correctamente']);
     }
 }
 

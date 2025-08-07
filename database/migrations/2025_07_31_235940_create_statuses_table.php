@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('statuses', function (Blueprint $table) {
             $table->string('_id')->primary();
-            $table->integer('_id')->primary()->autoIncrement();
+           
             $table->timestamp('creado_en')->nullable();
             $table->timestamp('actualizado_en')->nullable();
             $table->string('nombre');
