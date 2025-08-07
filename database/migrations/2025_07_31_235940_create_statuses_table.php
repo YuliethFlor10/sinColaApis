@@ -9,7 +9,7 @@ return new class extends Migration
     public function up()
     {
         Schema::create('statuses', function (Blueprint $table) {
-            $table->id('_id');
+            $table->id();
             $table->timestamp('creado_en')->nullable();
             $table->timestamp('actualizado_en')->nullable();
             $table->string('nombre');
