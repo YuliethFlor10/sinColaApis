@@ -9,15 +9,15 @@ return new class extends Migration
     public function up()
     {
         Schema::create('appointments', function (Blueprint $table) {
-            $table->string('_id')->primary();
+            $table->id('_id');
             $table->timestamp('creado_en')->nullable();
             $table->timestamp('actualizado_en')->nullable();
-            $table->string('tipo_usuario');
-            $table->string('negocios');
+            $table->unsignedBigInteger('tipo_usuario');
+            $table->unsignedBigInteger('negocios');
             $table->text('nota')->nullable();
             $table->date('fecha');
-            $table->string('estados');
-            $table->string('servicios');
+            $table->unsignedBigInteger('estados');
+            $table->unsignedBigInteger('servicios');
             $table->date('fecha_fin');
             $table->integer('tiempo_estimado');
             $table->text('descripcion_cancel')->nullable();
