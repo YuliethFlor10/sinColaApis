@@ -9,7 +9,7 @@ return new class extends Migration
     public function up()
     {
         Schema::create('users', function (Blueprint $table) {
-            $table->string('_id')->primary();
+            $table->id('_id');
             $table->timestamp('creado_en')->nullable();
             $table->timestamp('actualizado_en')->nullable();
             $table->string('nombres');
@@ -19,16 +19,16 @@ return new class extends Migration
             $table->integer('edad');
             $table->string('genero');
             $table->string('clave');
-            $table->string('tipo_identificacion');
+            $table->unsignedBigInteger('tipo_identificacion');
             $table->string('identificacion');
             $table->integer('celular');
             $table->string('telefono')->nullable();
             $table->string('direccion');
             $table->boolean('terminos_condiciones');
-            $table->string('estados');
-            $table->string('roles');
-            $table->string('negocios');
-            $table->string('servicios');
+            $table->unsignedBigInteger('estados');
+            $table->unsignedBigInteger('roles');
+            $table->unsignedBigInteger('negocios')->nullable();
+            $table->unsignedBigInteger('servicios')->nullable();
 
             // Foreign keys
             $table->foreign('tipo_identificacion')->references('_id')->on('categories')->onDelete('no action')->onUpdate('no action');

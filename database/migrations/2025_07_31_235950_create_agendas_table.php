@@ -9,14 +9,14 @@ return new class extends Migration
     public function up()
     {
         Schema::create('agendas', function (Blueprint $table) {
-            $table->string('_id')->primary();
+            $table->id('_id');
             $table->timestamp('creado_en')->nullable();
             $table->timestamp('actualizado_en')->nullable();
             $table->string('nombre');
             $table->json('horarios');
             $table->boolean('activo');
-            $table->string('negocios');
-            $table->string('usuarios');
+            $table->unsignedBigInteger('negocios');
+            $table->unsignedBigInteger('usuarios');
 
             // Foreign keys
             $table->foreign('negocios')->references('_id')->on('businesses')->onDelete('no action')->onUpdate('no action');

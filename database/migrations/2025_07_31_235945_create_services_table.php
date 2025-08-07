@@ -9,16 +9,16 @@ return new class extends Migration
     public function up()
     {
         Schema::create('services', function (Blueprint $table) {
-            $table->string('_id')->primary();
+            $table->id('_id');
             $table->timestamp('creado_en')->nullable();
             $table->timestamp('actualizado_en')->nullable();
             $table->string('abreviatura');
             $table->string('nombre');
             $table->text('descripcion');
             $table->integer('tiempo_estimado');
-            $table->string('tipos');
-            $table->string('estados');
-            $table->string('negocios');
+            $table->unsignedBigInteger('tipos');
+            $table->unsignedBigInteger('estados');
+            $table->unsignedBigInteger('negocios');
             $table->decimal('precio', 10, 2);
 
             // Foreign keys
