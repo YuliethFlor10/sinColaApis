@@ -21,9 +21,9 @@ return new class extends Migration
             $table->unsignedBigInteger('planes_id');
 
             // Foreign keys
-            $table->foreign('estados')->references('estados_id')->on('statuses')->onDelete('no action')->onUpdate('no action');
-           // $table->foreign('tipo_servicio')->references('tipo_servicio_id')->on('categories')->onDelete('no action')->onUpdate('no action');
-           // $table->foreign('planes')->references('planes_id')->on('plans')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('estados_id')->references('id')->on('statuses')->onDelete('no action')->onUpdate('no action');
+           // $table->foreign('tipo_servicio_id')->references('id')->on('categories')->onDelete('no action')->onUpdate('no action');
+           // $table->foreign('planes_id')->references('id')->on('plans')->onDelete('no action')->onUpdate('no action');
         });
     }
 

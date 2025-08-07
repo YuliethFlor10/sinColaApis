@@ -23,10 +23,10 @@ return new class extends Migration
             $table->text('descripcion_cancel')->nullable();
 
             // Foreign keys
-            $table->foreign('tipo_usuario')->references('tipo_usuario_id')->on('categories')->onDelete('no action')->onUpdate('no action');
-            $table->foreign('negocios')->references('negocios_id')->on('businesses')->onDelete('no action')->onUpdate('no action');
-            $table->foreign('estados')->references('estados_id')->on('statuses')->onDelete('no action')->onUpdate('no action');
-            $table->foreign('servicios')->references('servicios_id')->on('services')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('tipo_usuario_id')->references('id')->on('categories')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('negocios_id')->references('id')->on('businesses')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('estados_id')->references('id')->on('statuses')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('servicios_id')->references('id')->on('services')->onDelete('no action')->onUpdate('no action');
         });
     }
 

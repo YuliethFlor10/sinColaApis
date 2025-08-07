@@ -18,7 +18,7 @@ return new class extends Migration
             $table->unsignedBigInteger('estados_id');
 
             // Foreign keys
-            $table->foreign('estados')->references('estados_id')->on('statuses')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('estados_id')->references('id')->on('statuses')->onDelete('cascade')->onUpdate('cascade');;
         });
     }
 

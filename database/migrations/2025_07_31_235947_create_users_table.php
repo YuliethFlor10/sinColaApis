@@ -31,11 +31,11 @@ return new class extends Migration
             $table->unsignedBigInteger('servicios_id')->nullable();
 
             // Foreign keys
-            $table->foreign('tipo_identificacion')->references('tipo_identificacion_id')->on('categories')->onDelete('no action')->onUpdate('no action');
-            $table->foreign('estados')->references('estados_id')->on('statuses')->onDelete('no action')->onUpdate('no action');
-            $table->foreign('roles')->references('roles_id')->on('roles')->onDelete('no action')->onUpdate('no action');
-            $table->foreign('negocios')->references('negocios_id')->on('businesses')->onDelete('no action')->onUpdate('no action');
-            $table->foreign('servicios')->references('servicios_id')->on('services')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('tipo_identificacion_id')->references('id')->on('categories')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('estados_id')->references('id')->on('statuses')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('roles_id')->references('id')->on('roles')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('negocios_id')->references('id')->on('businesses')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('servicios_id')->references('id')->on('services')->onDelete('no action')->onUpdate('no action');
         });
     }
 

@@ -22,9 +22,9 @@ return new class extends Migration
             $table->decimal('precio', 10, 2);
 
             // Foreign keys
-            $table->foreign('tipos')->references('tipos_id')->on('categories')->onDelete('no action')->onUpdate('no action');
-            $table->foreign('estados')->references('estados_id')->on('statuses')->onDelete('no action')->onUpdate('no action');
-            $table->foreign('negocios')->references('negocios_id')->on('businesses')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('tipos_id')->references('id')->on('categories')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('estados_id')->references('id')->on('statuses')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('negocios_id')->references('id')->on('businesses')->onDelete('no action')->onUpdate('no action');
         });
     }
 

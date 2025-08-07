@@ -19,8 +19,8 @@ return new class extends Migration
             $table->unsignedBigInteger('usuarios_id');
 
             // Foreign keys
-            $table->foreign('negocios')->references('negocios_id')->on('businesses')->onDelete('no action')->onUpdate('no action');
-            $table->foreign('usuarios')->references('usuarios_id')->on('users')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('negocios_id')->references('id')->on('businesses')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('usuarios_id')->references('id')->on('users')->onDelete('no action')->onUpdate('no action');
         });
     }
 
