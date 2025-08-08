@@ -9,21 +9,21 @@ return new class extends Migration
     public function up()
     {
         Schema::create('businesses', function (Blueprint $table) {
-            $table->string('_id')->primary();
+            $table->id();
             $table->timestamp('creado_en')->nullable();
             $table->timestamp('actualizado_en')->nullable();
             $table->string('nit');
             $table->string('nombre');
             $table->string('direccion');
             $table->string('telefono');
-            $table->string('estados');
-            $table->string('tipo_servicio');
-            $table->string('planes');
+            $table->unsignedBigInteger('estados_id');
+            $table->unsignedBigInteger('tipo_servicio_id');
+            $table->unsignedBigInteger('planes_id');
 
             // Foreign keys
-            $table->foreign('estados')->references('_id')->on('statuses')->onDelete('no action')->onUpdate('no action');
-           // $table->foreign('tipo_servicio')->references('_id')->on('categories')->onDelete('no action')->onUpdate('no action');
-           // $table->foreign('planes')->references('_id')->on('plans')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('estados_id')->references('id')->on('statuses')->onDelete('no action')->onUpdate('no action');
+           // $table->foreign('tipo_servicio_id')->references('id')->on('categories')->onDelete('no action')->onUpdate('no action');
+           // $table->foreign('planes_id')->references('id')->on('plans')->onDelete('no action')->onUpdate('no action');
         });
     }
 
@@ -32,4 +32,3 @@ return new class extends Migration
         Schema::dropIfExists('businesses');
     }
 };
-

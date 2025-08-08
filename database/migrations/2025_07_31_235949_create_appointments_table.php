@@ -9,24 +9,24 @@ return new class extends Migration
     public function up()
     {
         Schema::create('appointments', function (Blueprint $table) {
-            $table->string('_id')->primary();
+            $table->id();
             $table->timestamp('creado_en')->nullable();
             $table->timestamp('actualizado_en')->nullable();
-            $table->string('tipo_usuario');
-            $table->string('negocios');
+            $table->unsignedBigInteger('tipo_usuario_id');
+            $table->unsignedBigInteger('negocios_id');
             $table->text('nota')->nullable();
             $table->date('fecha');
-            $table->string('estados');
-            $table->string('servicios');
+            $table->unsignedBigInteger('estados_id');
+            $table->unsignedBigInteger('servicios_id');
             $table->date('fecha_fin');
             $table->integer('tiempo_estimado');
             $table->text('descripcion_cancel')->nullable();
 
             // Foreign keys
-            $table->foreign('tipo_usuario')->references('_id')->on('categories')->onDelete('no action')->onUpdate('no action');
-            $table->foreign('negocios')->references('_id')->on('businesses')->onDelete('no action')->onUpdate('no action');
-            $table->foreign('estados')->references('_id')->on('statuses')->onDelete('no action')->onUpdate('no action');
-            $table->foreign('servicios')->references('_id')->on('services')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('tipo_usuario_id')->references('id')->on('categories')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('negocios_id')->references('id')->on('businesses')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('estados_id')->references('id')->on('statuses')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('servicios_id')->references('id')->on('services')->onDelete('no action')->onUpdate('no action');
         });
     }
 
@@ -35,4 +35,3 @@ return new class extends Migration
         Schema::dropIfExists('appointments');
     }
 };
-

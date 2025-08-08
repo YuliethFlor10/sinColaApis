@@ -9,17 +9,16 @@ return new class extends Migration
     public function up()
     {
         Schema::create('plans', function (Blueprint $table) {
-            $table->string('_id')->primary();
+            $table->id();
             $table->timestamp('creado_en')->nullable();
             $table->timestamp('actualizado_en')->nullable();
             $table->string('nombre');
             $table->json('caracteristicas');
             $table->integer('descuentos');
-            $table->string('estados');
-            
+            $table->unsignedBigInteger('estados_id');
 
             // Foreign keys
-            $table->foreign('estados')->references('_id')->on('statuses')->onDelete('no action')->onUpdate('no action');
+            $table->foreign('estados_id')->references('id')->on('statuses')->onDelete('cascade')->onUpdate('cascade');;
         });
     }
 
