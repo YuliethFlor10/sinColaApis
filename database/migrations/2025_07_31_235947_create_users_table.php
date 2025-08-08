@@ -21,7 +21,7 @@ return new class extends Migration
             $table->string('clave');
             $table->unsignedBigInteger('tipo_identificacion_id');
             $table->string('identificacion');
-            $table->integer('celular');
+            $table->bigInteger('celular');
             $table->string('telefono')->nullable();
             $table->string('direccion');
             $table->boolean('terminos_condiciones');

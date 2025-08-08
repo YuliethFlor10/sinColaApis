@@ -5,61 +5,57 @@ namespace App\Http\Controllers;
 use App\Models\Business;
 use Illuminate\Http\Request;
 
-class BusinessController
+class BusinessController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    // GET /businesses
     public function index()
     {
-        return response()->json(['message' => 'Hello from index business']);
+        $businesses = Business::with('status')->get();
+        return response()->json($businesses);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
+    // GET /businesses/{id}
+    public function show($id)
     {
-        //
+        $business = Business::with('status')->find($id);
+
+        if (!$business) {
+            return response()->json(['message' => 'Negocio no encontrado'], 404);
+        }
+
+        return response()->json($business);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
+    // POST /businesses
     public function store(Request $request)
     {
-        //
+        $business = Business::create($request->all());
+        return response()->json($business, 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Business $business)
+    // PUT /businesses/{id}
+    public function update(Request $request, $id)
     {
-        //
+        $business = Business::find($id);
+
+        if (!$business) {
+            return response()->json(['message' => 'Negocio no encontrado'], 404);
+        }
+
+        $business->update($request->all());
+        return response()->json($business);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Business $business)
+    // DELETE /businesses/{id}
+    public function destroy($id)
     {
-        //
-    }
+        $business = Business::find($id);
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Business $business)
-    {
-        //
-    }
+        if (!$business) {
+            return response()->json(['message' => 'Negocio no encontrado'], 404);
+        }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Business $business)
-    {
-        //
+        $business->delete();
+        return response()->json(['message' => 'Negocio eliminado correctamente']);
     }
 }

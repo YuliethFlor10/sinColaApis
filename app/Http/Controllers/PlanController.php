@@ -5,61 +5,57 @@ namespace App\Http\Controllers;
 use App\Models\Plan;
 use Illuminate\Http\Request;
 
-class PlanController
+class PlanController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    // GET /plans
     public function index()
     {
-        return response()->json(['message' => 'Hello from index plan']);
+        $plans = Plan::with('status')->get();
+        return response()->json($plans);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
+    // GET /plans/{id}
+    public function show($id)
     {
-        //
+        $plan = Plan::with('status')->find($id);
+
+        if (!$plan) {
+            return response()->json(['message' => 'Plan no encontrado'], 404);
+        }
+
+        return response()->json($plan);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
+    // POST /plans
     public function store(Request $request)
     {
-        //
+        $plan = Plan::create($request->all());
+        return response()->json($plan, 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Plan $plan)
+    // PUT /plans/{id}
+    public function update(Request $request, $id)
     {
-        //
+        $plan = Plan::find($id);
+
+        if (!$plan) {
+            return response()->json(['message' => 'Plan no encontrado'], 404);
+        }
+
+        $plan->update($request->all());
+        return response()->json($plan);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Plan $plan)
+    // DELETE /plans/{id}
+    public function destroy($id)
     {
-        //
-    }
+        $plan = Plan::find($id);
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Plan $plan)
-    {
-        //
-    }
+        if (!$plan) {
+            return response()->json(['message' => 'Plan no encontrado'], 404);
+        }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Plan $plan)
-    {
-        //
+        $plan->delete();
+        return response()->json(['message' => 'Plan eliminado correctamente']);
     }
 }

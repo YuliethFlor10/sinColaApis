@@ -5,61 +5,61 @@ namespace App\Http\Controllers;
 use App\Models\Agenda;
 use Illuminate\Http\Request;
 
-class AgendaController
+class AgendaController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    // GET /agendas
     public function index()
     {
-        return response()->json(['message' => 'Hello from index agenda']);
+        // Incluye relaciones con usuarios, servicios y citas
+        $agendas = Agenda::with(['user', 'service', 'appointment'])->get();
+        return response()->json($agendas);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
+    // GET /agendas/{id}
+    public function show($id)
     {
-        //
+        $agenda = Agenda::with(['user', 'service', 'appointment'])->find($id);
+
+        if (!$agenda) {
+            return response()->json(['message' => 'Agenda no encontrada'], 404);
+        }
+
+        return response()->json($agenda);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
+    // POST /agendas
     public function store(Request $request)
     {
-        //
+        $agenda = Agenda::create($request->all());
+
+        return response()->json($agenda, 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Agenda $agenda)
+    // PUT /agendas/{id}
+    public function update(Request $request, $id)
     {
-        //
+        $agenda = Agenda::find($id);
+
+        if (!$agenda) {
+            return response()->json(['message' => 'Agenda no encontrada'], 404);
+        }
+
+        $agenda->update($request->all());
+
+        return response()->json($agenda);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Agenda $agenda)
+    // DELETE /agendas/{id}
+    public function destroy($id)
     {
-        //
-    }
+        $agenda = Agenda::find($id);
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Agenda $agenda)
-    {
-        //
-    }
+        if (!$agenda) {
+            return response()->json(['message' => 'Agenda no encontrada'], 404);
+        }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Agenda $agenda)
-    {
-        //
+        $agenda->delete();
+
+        return response()->json(['message' => 'Agenda eliminada correctamente']);
     }
 }

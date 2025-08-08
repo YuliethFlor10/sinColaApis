@@ -1,5 +1,6 @@
 <?php
 
+
 use App\Http\Controllers\AgendaController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\BusinessController;
@@ -13,12 +14,14 @@ use Illuminate\Support\Facades\Route;
 
 
 
-Route::apiResource('estados', StatusController::class);
-Route::apiResource('planes', PlanController::class);
+Route::apiResource('statuses', StatusController::class);
+Route::apiResource('plans', PlanController::class);
 Route::apiResource('roles', RoleController::class);
-Route::apiResource('negocios', BusinessController::class);
-Route::apiResource('usuarios', UserController::class);
-Route::apiResource('tipos', CategoryController::class);
-Route::apiResource('servicios', ServiceController::class);
+Route::apiResource('businesses', BusinessController::class);
+Route::apiResource('users', UserController::class);
+Route::apiResource('categories', CategoryController::class);
+Route::apiResource('services', ServiceController::class);
 Route::apiResource('agendas', AgendaController::class);
-Route::apiResource('citas', AppointmentController::class);
+Route::apiResource('appointments', AppointmentController::class);
+
+

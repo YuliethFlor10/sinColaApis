@@ -5,61 +5,57 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use Illuminate\Http\Request;
 
-class CategoryController
+class CategoryController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    // GET /categories
     public function index()
     {
-        return response()->json(['message' => 'Hello from index category']);
+        $categories = Category::with('status')->get();
+        return response()->json($categories);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
+    // GET /categories/{id}
+    public function show($id)
     {
-        //
+        $category = Category::with('status')->find($id);
+
+        if (!$category) {
+            return response()->json(['message' => 'Categoría no encontrada'], 404);
+        }
+
+        return response()->json($category);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
+    // POST /categories
     public function store(Request $request)
     {
-        //
+        $category = Category::create($request->all());
+        return response()->json($category, 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Category $category)
+    // PUT /categories/{id}
+    public function update(Request $request, $id)
     {
-        //
+        $category = Category::find($id);
+
+        if (!$category) {
+            return response()->json(['message' => 'Categoría no encontrada'], 404);
+        }
+
+        $category->update($request->all());
+        return response()->json($category);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Category $category)
+    // DELETE /categories/{id}
+    public function destroy($id)
     {
-        //
-    }
+        $category = Category::find($id);
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Category $category)
-    {
-        //
-    }
+        if (!$category) {
+            return response()->json(['message' => 'Categoría no encontrada'], 404);
+        }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Category $category)
-    {
-        //
+        $category->delete();
+        return response()->json(['message' => 'Categoría eliminada correctamente']);
     }
 }

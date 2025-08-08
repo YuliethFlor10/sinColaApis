@@ -5,61 +5,57 @@ namespace App\Http\Controllers;
 use App\Models\Status;
 use Illuminate\Http\Request;
 
-class StatusController
+class StatusController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    // GET /statuses
     public function index()
     {
-        return response()->json(['message' => 'Hello from index status']);
+        $statuses = Status::all();
+        return response()->json($statuses);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
+    // GET /statuses/{id}
+    public function show($id)
     {
-        //
+        $status = Status::find($id);
+
+        if (!$status) {
+            return response()->json(['message' => 'Estado no encontrado'], 404);
+        }
+
+        return response()->json($status);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
+    // POST /statuses
     public function store(Request $request)
     {
-        //
+        $status = Status::create($request->all());
+        return response()->json($status, 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Status $status)
+    // PUT /statuses/{id}
+    public function update(Request $request, $id)
     {
-        //
+        $status = Status::find($id);
+
+        if (!$status) {
+            return response()->json(['message' => 'Estado no encontrado'], 404);
+        }
+
+        $status->update($request->all());
+        return response()->json($status);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Status $status)
+    // DELETE /statuses/{id}
+    public function destroy($id)
     {
-        //
-    }
+        $status = Status::find($id);
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Status $status)
-    {
-        //
-    }
+        if (!$status) {
+            return response()->json(['message' => 'Estado no encontrado'], 404);
+        }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Status $status)
-    {
-        //
+        $status->delete();
+        return response()->json(['message' => 'Estado eliminado correctamente']);
     }
 }
