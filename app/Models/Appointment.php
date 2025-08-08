@@ -6,35 +6,49 @@ use Illuminate\Database\Eloquent\Model;
 
 class Appointment extends Model
 {
+    public const CREATED_AT = 'creado_en';
+    public const UPDATED_AT = 'actualizado_en';
+
     protected $fillable = [
-        'tipo_usuario',
-        'negocios',
+        'tipo_usuario_id',
+        'negocios_id',
         'nota',
         'fecha',
-        'estados',
-        'servicios',
+        'estados_id',
+        'servicios_id',
         'fecha_fin',
         'tiempo_estimado',
-        'descripcion_cancel'
+        'descripcion_cancel',
     ];
+
+
+/* public function user()
+{
+    return $this->belongsTo(User::class, 'usuarios_id');
+} */
+
+public function status()
+{
+    return $this->belongsTo(Status::class, 'estados_id');
+}
 
     public function category()
     {
-        return $this->belongsTo(Category::class, 'tipo_usuario', '_id');
+        return $this->belongsTo(Category::class, 'tipo_usuario_id');
     }
 
+    // Relación con negocios
     public function business()
     {
-        return $this->belongsTo(Business::class, 'negocios', '_id');
+        return $this->belongsTo(Business::class, 'negocios_id');
     }
 
-    public function status()
-    {
-        return $this->belongsTo(Status::class, 'estados', '_id');
-    }
 
+
+    // Relación con servicios
     public function service()
     {
-        return $this->belongsTo(Service::class, 'servicios', '_id');
+        return $this->belongsTo(Service::class, 'servicios_id');
     }
+
 }

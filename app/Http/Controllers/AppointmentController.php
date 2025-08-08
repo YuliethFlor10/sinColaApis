@@ -7,56 +7,54 @@ use Illuminate\Http\Request;
 
 class AppointmentController extends Controller
 {
+    // GET /appointments
     public function index()
     {
-        return Appointment::with(['usuario', 'negocio', 'servicio', 'estado'])->get();
+        $appointments = Appointment::with([ 'status'])->get();
+        return response()->json($appointments);
     }
 
-    public function store(Request $request)
-    {
-        $data = $request->validate([
-            'nota' => 'nullable|string',
-            'fecha' => 'required|date',
-            'tiempo_estimado' => 'required|integer|min:1',
-            'descripcion_cancelacion' => 'nullable|string',
-            'fecha_fin' => 'required|date|after_or_equal:fecha',
-            'usuarios_id' => 'required|exists:users,id',
-            'negocios_id' => 'required|exists:businesses,id',
-            'servicios_id' => 'required|exists:services,id',
-            'estados_id' => 'required|exists:estados,id'
-        ]);
-
-        return response()->json(Appointment::create($data)->load(['usuario', 'negocio', 'servicio', 'estado']), 201);
-    }
-
+    // GET /appointments/{id}
     public function show($id)
     {
-        return Appointment::with(['usuario', 'negocio', 'servicio', 'estado'])->findOrFail($id);
+        $appointment = Appointment::with([ 'status'])->find($id);
+
+        if (!$appointment) {
+            return response()->json(['message' => 'Cita no encontrada'], 404);
+        }
+
+        return response()->json($appointment);
     }
 
+    // POST /appointments
+    public function store(Request $request)
+    {
+        $appointment = Appointment::create($request->all());
+        return response()->json($appointment, 201);
+    }
+
+    // PUT /appointments/{id}
     public function update(Request $request, $id)
     {
-        $appointment = Appointment::findOrFail($id);
+        $appointment = Appointment::find($id);
 
-        $data = $request->validate([
-            'nota' => 'nullable|string',
-            'fecha' => 'sometimes|date',
-            'tiempo_estimado' => 'sometimes|integer|min:1',
-            'descripcion_cancelacion' => 'nullable|string',
-            'fecha_fin' => 'sometimes|date|after_or_equal:fecha',
-            'usuarios_id' => 'sometimes|exists:users,id',
-            'negocios_id' => 'sometimes|exists:businesses,id',
-            'servicios_id' => 'sometimes|exists:services,id',
-            'estados_id' => 'sometimes|exists:estados,id'
-        ]);
+        if (!$appointment) {
+            return response()->json(['message' => 'Cita no encontrada'], 404);
+        }
 
-        $appointment->update($data);
-        return response()->json($appointment->load(['usuario', 'negocio', 'servicio', 'estado']));
+        $appointment->update($request->all());
+        return response()->json($appointment);
     }
 
+    // DELETE /appointments/{id}
     public function destroy($id)
     {
-        $appointment = Appointment::findOrFail($id);
+        $appointment = Appointment::find($id);
+
+        if (!$appointment) {
+            return response()->json(['message' => 'Cita no encontrada'], 404);
+        }
+
         $appointment->delete();
         return response()->json(['message' => 'Cita eliminada correctamente']);
     }

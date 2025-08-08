@@ -6,39 +6,33 @@ use Illuminate\Database\Eloquent\Model;
 
 class Service extends Model
 {
+    public const CREATED_AT = 'creado_en';
+    public const UPDATED_AT = 'actualizado_en';
+
     protected $fillable = [
         'abreviatura',
         'nombre',
         'descripcion',
         'tiempo_estimado',
-        'tipos',
-        'estados',
-        'negocios',
-        'precio'
+        'precio',
+        'tipos_id',
+        'estados_id',
+        'negocios_id'
     ];
 
-    public function category()
-    {
-        return $this->belongsTo(Category::class, 'tipos', '_id');
-    }
+  public function category()
+{
+    return $this->belongsTo(Category::class, 'tipos_id');
+}
 
-    public function status()
-    {
-        return $this->belongsTo(Status::class, 'estados', '_id');
-    }
+public function status()
+{
+    return $this->belongsTo(Status::class, 'estados_id');
+}
 
-    public function business()
-    {
-        return $this->belongsTo(Business::class, 'negocios', '_id');
-    }
+public function business()
+{
+    return $this->belongsTo(Business::class, 'negocios_id');
+}
 
-    public function users()
-    {
-        return $this->hasMany(User::class, 'servicios', '_id');
-    }
-
-    public function appointments()
-    {
-        return $this->hasMany(Appointment::class, 'servicios', '_id');
-    }
 }

@@ -6,19 +6,24 @@ use Illuminate\Database\Eloquent\Model;
 
 class Role extends Model
 {
+    public const CREATED_AT = 'creado_en';
+    public const UPDATED_AT = 'actualizado_en';
+
     protected $fillable = [
         'nombre',
         'descripcion',
-        'estados'
+        'estados_id'
     ];
 
+    // Relación con estado
     public function status()
     {
-        return $this->belongsTo(Status::class, 'estados', '_id');
+        return $this->belongsTo(Status::class, 'estados_id');
     }
 
+    // Relación con usuarios que tienen este rol
     public function users()
     {
-        return $this->hasMany(User::class, 'roles', '_id');
+        return $this->hasMany(User::class, 'role_id');
     }
 }

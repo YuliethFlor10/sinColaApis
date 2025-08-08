@@ -7,52 +7,59 @@ use Illuminate\Http\Request;
 
 class AgendaController extends Controller
 {
+    // GET /agendas
     public function index()
     {
-        return Agenda::with(['business', 'user', 'status'])->get();
+        // Incluye relaciones con usuarios, servicios y citas
+        $agendas = Agenda::with(['user', 'service', 'appointment'])->get();
+        return response()->json($agendas);
     }
 
-    public function store(Request $request)
-    {
-        $data = $request->validate([
-            'nombre' => 'required|string|max:255',
-            'horarios' => 'required|json',
-            'activo' => 'required|boolean',
-            'businesss_id' => 'required|exists:businesses,id',
-            'users_id' => 'required|exists:users,id',
-            'statuss_id' => 'required|exists:statuss,id'
-        ]);
-
-        return response()->json(Agenda::create($data)->load(['business', 'user', 'status']), 201);
-    }
-
+    // GET /agendas/{id}
     public function show($id)
     {
-        return Agenda::with(['business', 'user', 'status'])->findOrFail($id);
+        $agenda = Agenda::with(['user', 'service', 'appointment'])->find($id);
+
+        if (!$agenda) {
+            return response()->json(['message' => 'Agenda no encontrada'], 404);
+        }
+
+        return response()->json($agenda);
     }
 
+    // POST /agendas
+    public function store(Request $request)
+    {
+        $agenda = Agenda::create($request->all());
+
+        return response()->json($agenda, 201);
+    }
+
+    // PUT /agendas/{id}
     public function update(Request $request, $id)
     {
-        $agenda = Agenda::findOrFail($id);
+        $agenda = Agenda::find($id);
 
-        $data = $request->validate([
-            'nombre' => 'sometimes|string|max:255',
-            'horarios' => 'sometimes|json',
-            'activo' => 'sometimes|boolean',
-            'businesss_id' => 'sometimes|exists:businesses,id',
-            'users_id' => 'sometimes|exists:users,id',
-            'statuss_id' => 'sometimes|exists:statuss,id'
-        ]);
+        if (!$agenda) {
+            return response()->json(['message' => 'Agenda no encontrada'], 404);
+        }
 
-        $agenda->update($data);
-        return response()->json($agenda->load(['business', 'user', 'status']));
+        $agenda->update($request->all());
+
+        return response()->json($agenda);
     }
 
+    // DELETE /agendas/{id}
     public function destroy($id)
     {
-        $agenda = Agenda::findOrFail($id);
+        $agenda = Agenda::find($id);
+
+        if (!$agenda) {
+            return response()->json(['message' => 'Agenda no encontrada'], 404);
+        }
+
         $agenda->delete();
+
         return response()->json(['message' => 'Agenda eliminada correctamente']);
     }
 }
-

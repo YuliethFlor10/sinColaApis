@@ -7,45 +7,55 @@ use Illuminate\Http\Request;
 
 class StatusController extends Controller
 {
+    // GET /statuses
     public function index()
     {
-        return Status::all();
+        $statuses = Status::all();
+        return response()->json($statuses);
     }
 
-    public function store(Request $request)
-    {
-        $data = $request->validate([
-            'nombre' => 'required|string',
-            'descripcion' => 'nullable|string',
-            'grupo' => 'nullable|string',
-        ]);
-
-        return Status::create($data);
-    }
-
+    // GET /statuses/{id}
     public function show($id)
     {
-        return Status::findOrFail($id);
+        $status = Status::find($id);
+
+        if (!$status) {
+            return response()->json(['message' => 'Estado no encontrado'], 404);
+        }
+
+        return response()->json($status);
     }
 
+    // POST /statuses
+    public function store(Request $request)
+    {
+        $status = Status::create($request->all());
+        return response()->json($status, 201);
+    }
+
+    // PUT /statuses/{id}
     public function update(Request $request, $id)
     {
-        $status  = Status::findOrFail($id);
+        $status = Status::find($id);
 
-        $data = $request->validate([
-            'nombre' => 'sometimes|string',
-            'descripcion' => 'nullable|string',
-            'grupo' => 'nullable|string',
-        ]);
+        if (!$status) {
+            return response()->json(['message' => 'Estado no encontrado'], 404);
+        }
 
-        $status->update($data);
-        return $status;
+        $status->update($request->all());
+        return response()->json($status);
     }
 
+    // DELETE /statuses/{id}
     public function destroy($id)
     {
-        Status::findOrFail($id)->delete();
-        return response()->json(['message' => 'Estado eliminado']);
+        $status = Status::find($id);
+
+        if (!$status) {
+            return response()->json(['message' => 'Estado no encontrado'], 404);
+        }
+
+        $status->delete();
+        return response()->json(['message' => 'Estado eliminado correctamente']);
     }
 }
-
