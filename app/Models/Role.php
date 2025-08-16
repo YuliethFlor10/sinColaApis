@@ -12,18 +12,16 @@ class Role extends Model
     protected $fillable = [
         'nombre',
         'descripcion',
-        'estados_id'
+        'estados_id',
     ];
 
-    // Relación con estado
     public function status()
     {
         return $this->belongsTo(Status::class, 'estados_id');
     }
 
-    // Relación con usuarios que tienen este rol
     public function users()
     {
-        return $this->hasMany(User::class, 'role_id');
+        return $this->hasMany(User::class, 'roles_id');
     }
 }

@@ -16,32 +16,20 @@ class Agenda extends Model
         'negocios_id',
         'usuarios_id',
     ];
+
     protected $casts = [
-    'horarios' => 'array',
-];
+        'horarios' => 'array',
+        'activo' => 'boolean',
+    ];
 
-
-    // Relación con negocios (Business)
-   public function user()
-{
-    return $this->belongsTo(User::class, 'usuarios_id');
-}
-
-public function service()
-{
-    return $this->belongsTo(Service::class, 'servicios_id');
-}
-
-public function appointment()
-{
-    return $this->belongsTo(Appointment::class, 'citas_id');
-}
-
-  public function business()
+    public function business()
     {
         return $this->belongsTo(Business::class, 'negocios_id');
     }
 
-
-
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'usuarios_id');
+    }
 }
+

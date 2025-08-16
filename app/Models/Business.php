@@ -16,50 +16,41 @@ class Business extends Model
         'telefono',
         'estados_id',
         'tipo_servicio_id',
-        'planes_id'
+        'planes_id',
     ];
 
-    // Relación con estado
     public function status()
     {
         return $this->belongsTo(Status::class, 'estados_id');
     }
 
-    // Relación con categoría (tipo de servicio)
-    public function category()
+    public function serviceType()
     {
         return $this->belongsTo(Category::class, 'tipo_servicio_id');
     }
 
-    // Relación con plan
     public function plan()
     {
         return $this->belongsTo(Plan::class, 'planes_id');
     }
 
-    // Relación con usuarios
-    public function users()
-    {
-        return $this->hasMany(User::class, 'negocios_id');
-    }
-
-    // Relación con citas
-    public function appointments()
-    {
-        return $this->hasMany(Appointment::class, 'negocios_id');
-    }
-
-    // Relación con servicios
     public function services()
     {
         return $this->hasMany(Service::class, 'negocios_id');
     }
 
-    // Relación con agendas
     public function agendas()
     {
         return $this->hasMany(Agenda::class, 'negocios_id');
     }
 
-    
+    public function appointments()
+    {
+        return $this->hasMany(Appointment::class, 'negocios_id');
+    }
+
+    public function users()
+    {
+        return $this->hasMany(User::class, 'negocios_id');
+    }
 }

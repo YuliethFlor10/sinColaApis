@@ -17,22 +17,27 @@ class Service extends Model
         'precio',
         'tipos_id',
         'estados_id',
-        'negocios_id'
+        'negocios_id',
     ];
 
-  public function category()
-{
-    return $this->belongsTo(Category::class, 'tipos_id');
+    public function category()
+    {
+        return $this->belongsTo(Category::class, 'tipos_id');
+    }
+
+    public function status()
+    {
+        return $this->belongsTo(Status::class, 'estados_id');
+    }
+
+    public function business()
+    {
+        return $this->belongsTo(Business::class, 'negocios_id');
+    }
+
+    public function appointments()
+    {
+        return $this->hasMany(Appointment::class, 'servicios_id');
+    }
 }
 
-public function status()
-{
-    return $this->belongsTo(Status::class, 'estados_id');
-}
-
-public function business()
-{
-    return $this->belongsTo(Business::class, 'negocios_id');
-}
-
-}

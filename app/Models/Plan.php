@@ -13,24 +13,21 @@ class Plan extends Model
         'nombre',
         'caracteristicas',
         'descuentos',
-        'estados_id'
+        'estados_id',
     ];
 
-
     protected $casts = [
-    'caracteristicas' => 'array',
-];
+        'caracteristicas' => 'array',
+    ];
 
-
-    // Relación con estado
     public function status()
     {
         return $this->belongsTo(Status::class, 'estados_id');
     }
 
-    // Relación con negocios que usan este plan
     public function businesses()
     {
         return $this->hasMany(Business::class, 'planes_id');
     }
 }
+

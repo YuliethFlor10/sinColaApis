@@ -14,7 +14,6 @@ class User extends Model
         'apellidos',
         'email',
         'nacimiento',
-        'edad',
         'genero',
         'clave',
         'tipo_identificacion_id',
@@ -26,15 +25,7 @@ class User extends Model
         'estados_id',
         'roles_id',
         'negocios_id',
-        'servicios_id'
     ];
-
-
-
-    public function category()
-    {
-        return $this->belongsTo(Category::class, 'tipo_identificacion_id');
-    }
 
     public function status()
     {
@@ -51,13 +42,18 @@ class User extends Model
         return $this->belongsTo(Business::class, 'negocios_id');
     }
 
-    public function service()
+    public function identificationType()
     {
-        return $this->belongsTo(Service::class, 'servicios_id');
+        return $this->belongsTo(Category::class, 'tipo_identificacion_id');
     }
 
     public function agendas()
     {
         return $this->hasMany(Agenda::class, 'usuarios_id');
+    }
+
+    public function appointments()
+    {
+        return $this->hasMany(Appointment::class, 'usuarios_id');
     }
 }

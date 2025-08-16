@@ -6,26 +6,29 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
     public function up(): void {
-        Schema::create('agendas', function (Blueprint $table) {
+        Schema::create('services', function (Blueprint $table) {
             $table->id();
             $table->timestamp('creado_en')->useCurrent();
             $table->timestamp('actualizado_en')->useCurrent()->useCurrentOnUpdate();
 
+            $table->string('abreviatura', 10)->nullable();
             $table->string('nombre', 100);
-            $table->json('horarios');
-            $table->boolean('activo')->default(true);
+            $table->text('descripcion')->nullable();
+            $table->integer('tiempo_estimado')->nullable();
+            $table->decimal('precio', 10, 2)->nullable();
 
+            $table->unsignedBigInteger('tipos_id');
+            $table->unsignedBigInteger('estados_id');
             $table->unsignedBigInteger('negocios_id');
-            $table->unsignedBigInteger('usuarios_id');
 
-            // Foreign keys
+            // Foreign Keys
+            $table->foreign('tipos_id')->references('id')->on('categories');
+            $table->foreign('estados_id')->references('id')->on('statuses');
             $table->foreign('negocios_id')->references('id')->on('businesses')->onDelete('cascade')->onUpdate('cascade');
-            $table->foreign('usuarios_id')->references('id')->on('users')->onDelete('restrict')->onUpdate('cascade');
         });
     }
 
     public function down(): void {
-        Schema::dropIfExists('agendas');
+        Schema::dropIfExists('services');
     }
 };
-

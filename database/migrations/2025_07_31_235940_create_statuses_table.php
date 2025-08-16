@@ -4,22 +4,21 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
-    public function up()
-    {
+return new class extends Migration {
+    public function up(): void {
         Schema::create('statuses', function (Blueprint $table) {
             $table->id();
-            $table->timestamp('creado_en')->nullable();
-            $table->timestamp('actualizado_en')->nullable();
-            $table->string('nombre');
-            $table->text('descripcion');
-            $table->string('grupo');
+            $table->timestamp('creado_en')->useCurrent();
+            $table->timestamp('actualizado_en')->useCurrent()->useCurrentOnUpdate();
+
+            $table->string('nombre', 50);
+            $table->text('descripcion')->nullable();
+            $table->string('grupo', 30)->nullable();
         });
     }
 
-    public function down()
-    {
+    public function down(): void {
         Schema::dropIfExists('statuses');
     }
 };
+

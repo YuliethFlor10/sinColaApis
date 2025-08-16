@@ -6,13 +6,15 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
     public function up(): void {
-        Schema::create('roles', function (Blueprint $table) {
+        Schema::create('plans', function (Blueprint $table) {
             $table->id();
             $table->timestamp('creado_en')->useCurrent();
             $table->timestamp('actualizado_en')->useCurrent()->useCurrentOnUpdate();
 
-            $table->string('nombre', 25);
-            $table->text('descripcion')->nullable();
+            $table->string('nombre', 100);
+            $table->json('caracteristicas')->nullable();
+            $table->integer('descuentos')->nullable();
+
             $table->unsignedBigInteger('estados_id');
 
             // Foreign key
@@ -21,6 +23,7 @@ return new class extends Migration {
     }
 
     public function down(): void {
-        Schema::dropIfExists('roles');
+        Schema::dropIfExists('plans');
     }
 };
+

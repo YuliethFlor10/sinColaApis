@@ -12,7 +12,7 @@ class Status extends Model
     protected $fillable = [
         'nombre',
         'descripcion',
-        'grupo'
+        'grupo',
     ];
 
     public function users()
@@ -40,14 +40,14 @@ class Status extends Model
         return $this->hasMany(Plan::class, 'estados_id');
     }
 
-    public function categories()
-    {
-        return $this->hasMany(Category::class, 'estados_id');
-    }
-
     public function roles()
     {
         return $this->hasMany(Role::class, 'estados_id');
+    }
+
+    public function categories()
+    {
+        return $this->hasMany(Category::class, 'estados_id');
     }
 }
 

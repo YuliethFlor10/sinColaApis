@@ -4,34 +4,34 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
-    public function up()
-    {
+return new class extends Migration {
+    public function up(): void {
         Schema::create('appointments', function (Blueprint $table) {
             $table->id();
-            $table->timestamp('creado_en')->nullable();
-            $table->timestamp('actualizado_en')->nullable();
-            $table->unsignedBigInteger('tipo_usuario_id');
+            $table->timestamp('creado_en')->useCurrent();
+            $table->timestamp('actualizado_en')->useCurrent()->useCurrentOnUpdate();
+
+            $table->unsignedBigInteger('usuarios_id');
             $table->unsignedBigInteger('negocios_id');
-            $table->text('nota')->nullable();
-            $table->date('fecha');
-            $table->unsignedBigInteger('estados_id');
             $table->unsignedBigInteger('servicios_id');
-            $table->date('fecha_fin');
-            $table->integer('tiempo_estimado');
+            $table->unsignedBigInteger('estados_id');
+
+            $table->text('nota')->nullable();
+            $table->datetime('fecha');
+            $table->datetime('fecha_fin');
+            $table->integer('tiempo_estimado')->nullable();
             $table->text('descripcion_cancel')->nullable();
 
-            // Foreign keys
-            $table->foreign('tipo_usuario_id')->references('id')->on('categories')->onDelete('no action')->onUpdate('no action');
-            $table->foreign('negocios_id')->references('id')->on('businesses')->onDelete('no action')->onUpdate('no action');
-            $table->foreign('estados_id')->references('id')->on('statuses')->onDelete('no action')->onUpdate('no action');
-            $table->foreign('servicios_id')->references('id')->on('services')->onDelete('no action')->onUpdate('no action');
+            // Foreign Keys
+            $table->foreign('usuarios_id')->references('id')->on('users')->onUpdate('cascade');
+            $table->foreign('negocios_id')->references('id')->on('businesses')->onUpdate('cascade');
+            $table->foreign('servicios_id')->references('id')->on('services')->onUpdate('cascade');
+            $table->foreign('estados_id')->references('id')->on('statuses')->onUpdate('cascade');
         });
     }
 
-    public function down()
-    {
+    public function down(): void {
         Schema::dropIfExists('appointments');
     }
 };
+
