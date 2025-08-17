@@ -4,20 +4,22 @@ namespace App\Http\Controllers;
 
 use App\Models\Business;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class BusinessController extends Controller
 {
     // GET /businesses
     public function index()
     {
-        $businesses = Business::with('status')->get();
+        // Cargar relaciones estados, tipoServicio, plan
+        $businesses = Business::with(['status', 'serviceType', 'plan'])->get();
         return response()->json($businesses);
     }
 
     // GET /businesses/{id}
     public function show($id)
     {
-        $business = Business::with('status')->find($id);
+        $business = Business::with(['status', 'serviceType', 'plan'])->find($id);
 
         if (!$business) {
             return response()->json(['message' => 'Negocio no encontrado'], 404);
@@ -29,7 +31,18 @@ class BusinessController extends Controller
     // POST /businesses
     public function store(Request $request)
     {
-        $business = Business::create($request->all());
+        $validated = $request->validate([
+            'nit' => 'nullable|string|max:20|unique:businesses,nit',
+            'nombre' => 'required|string|max:150',
+            'direccion' => 'nullable|string',
+            'telefono' => 'nullable|string|max:20',
+            'estados_id' => 'required|exists:statuses,id',
+            'tipo_servicio_id' => 'required|exists:categories,id',
+            'planes_id' => 'required|exists:plans,id',
+        ]);
+
+        $business = Business::create($validated);
+
         return response()->json($business, 201);
     }
 
@@ -37,12 +50,22 @@ class BusinessController extends Controller
     public function update(Request $request, $id)
     {
         $business = Business::find($id);
-
         if (!$business) {
             return response()->json(['message' => 'Negocio no encontrado'], 404);
         }
 
-        $business->update($request->all());
+        $validated = $request->validate([
+            'nit' => ['nullable', 'string', 'max:20', Rule::unique('businesses')->ignore($business->id)],
+            'nombre' => 'sometimes|required|string|max:150',
+            'direccion' => 'nullable|string',
+            'telefono' => 'nullable|string|max:20',
+            'estados_id' => 'sometimes|required|exists:statuses,id',
+            'tipo_servicio_id' => 'sometimes|required|exists:categories,id',
+            'planes_id' => 'sometimes|required|exists:plans,id',
+        ]);
+
+        $business->update($validated);
+
         return response()->json($business);
     }
 
@@ -50,12 +73,12 @@ class BusinessController extends Controller
     public function destroy($id)
     {
         $business = Business::find($id);
-
         if (!$business) {
             return response()->json(['message' => 'Negocio no encontrado'], 404);
         }
 
         $business->delete();
+
         return response()->json(['message' => 'Negocio eliminado correctamente']);
     }
 }

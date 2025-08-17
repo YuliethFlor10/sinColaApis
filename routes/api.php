@@ -14,13 +14,13 @@ use Illuminate\Support\Facades\Route;
 
 
 
-Route::apiResource('statuses', StatusController::class);
-Route::apiResource('plans', PlanController::class);
+Route::apiResource('statuses', StatusController::class);  //sin delete por dependencias, eliminar primero los appointments y agendas
+Route::apiResource('plans', PlanController::class); //sin delete por dependencias, eliminar primero los negocios
 Route::apiResource('roles', RoleController::class);
 Route::apiResource('businesses', BusinessController::class);
 Route::apiResource('users', UserController::class);
-Route::apiResource('categories', CategoryController::class);
-Route::apiResource('services', ServiceController::class);
+Route::apiResource('categories', CategoryController::class); //sin delete por dependencias, eliminar primero los servicios
+Route::apiResource('services', ServiceController::class); //sin delete por dependencias, eliminar primero los appointments y agendas
 Route::apiResource('agendas', AgendaController::class);
 Route::apiResource('appointments', AppointmentController::class);
 

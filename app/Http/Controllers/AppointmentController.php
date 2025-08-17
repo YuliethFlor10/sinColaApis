@@ -10,14 +10,14 @@ class AppointmentController extends Controller
     // GET /appointments
     public function index()
     {
-        $appointments = Appointment::with([ 'status'])->get();
+        $appointments = Appointment::with(['user', 'business', 'status', 'service'])->get();
         return response()->json($appointments);
     }
 
     // GET /appointments/{id}
     public function show($id)
     {
-        $appointment = Appointment::with([ 'status'])->find($id);
+        $appointment = Appointment::with(['user', 'business', 'status', 'service'])->find($id);
 
         if (!$appointment) {
             return response()->json(['message' => 'Cita no encontrada'], 404);
@@ -29,7 +29,20 @@ class AppointmentController extends Controller
     // POST /appointments
     public function store(Request $request)
     {
-        $appointment = Appointment::create($request->all());
+        $validated = $request->validate([
+            'usuarios_id' => 'required|exists:users,id',
+            'negocios_id' => 'required|exists:businesses,id',
+            'nota' => 'nullable|string',
+            'fecha' => 'required|date',
+            'estados_id' => 'required|exists:statuses,id',
+            'servicios_id' => 'required|exists:services,id',
+            'fecha_fin' => 'required|date|after_or_equal:fecha',
+            'tiempo_estimado' => 'nullable|integer',
+            'descripcion_cancel' => 'nullable|string',
+        ]);
+
+        $appointment = Appointment::create($validated);
+
         return response()->json($appointment, 201);
     }
 
@@ -42,7 +55,20 @@ class AppointmentController extends Controller
             return response()->json(['message' => 'Cita no encontrada'], 404);
         }
 
-        $appointment->update($request->all());
+        $validated = $request->validate([
+            'usuarios_id' => 'sometimes|required|exists:users,id',
+            'negocios_id' => 'sometimes|required|exists:businesses,id',
+            'nota' => 'nullable|string',
+            'fecha' => 'sometimes|required|date',
+            'estados_id' => 'sometimes|required|exists:statuses,id',
+            'servicios_id' => 'sometimes|required|exists:services,id',
+            'fecha_fin' => 'sometimes|required|date|after_or_equal:fecha',
+            'tiempo_estimado' => 'nullable|integer',
+            'descripcion_cancel' => 'nullable|string',
+        ]);
+
+        $appointment->update($validated);
+
         return response()->json($appointment);
     }
 
@@ -56,6 +82,7 @@ class AppointmentController extends Controller
         }
 
         $appointment->delete();
+
         return response()->json(['message' => 'Cita eliminada correctamente']);
     }
 }

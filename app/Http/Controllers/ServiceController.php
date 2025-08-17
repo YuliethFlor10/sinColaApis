@@ -29,7 +29,19 @@ class ServiceController extends Controller
     // POST /services
     public function store(Request $request)
     {
-        $service = Service::create($request->all());
+        $validated = $request->validate([
+            'abreviatura' => 'nullable|string|max:10',
+            'nombre' => 'required|string|max:100',
+            'descripcion' => 'nullable|string',
+            'tiempo_estimado' => 'nullable|integer|min:0',
+            'tipos_id' => 'required|exists:categories,id',
+            'estados_id' => 'required|exists:statuses,id',
+            'negocios_id' => 'required|exists:businesses,id',
+            'precio' => 'nullable|numeric|min:0',
+        ]);
+
+        $service = Service::create($validated);
+
         return response()->json($service, 201);
     }
 
@@ -42,7 +54,19 @@ class ServiceController extends Controller
             return response()->json(['message' => 'Servicio no encontrado'], 404);
         }
 
-        $service->update($request->all());
+        $validated = $request->validate([
+            'abreviatura' => 'sometimes|nullable|string|max:10',
+            'nombre' => 'sometimes|required|string|max:100',
+            'descripcion' => 'sometimes|nullable|string',
+            'tiempo_estimado' => 'sometimes|nullable|integer|min:0',
+            'tipos_id' => 'sometimes|required|exists:categories,id',
+            'estados_id' => 'sometimes|required|exists:statuses,id',
+            'negocios_id' => 'sometimes|required|exists:businesses,id',
+            'precio' => 'sometimes|nullable|numeric|min:0',
+        ]);
+
+        $service->update($validated);
+
         return response()->json($service);
     }
 
@@ -56,6 +80,7 @@ class ServiceController extends Controller
         }
 
         $service->delete();
+
         return response()->json(['message' => 'Servicio eliminado correctamente']);
     }
 }

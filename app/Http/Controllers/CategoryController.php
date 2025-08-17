@@ -29,7 +29,16 @@ class CategoryController extends Controller
     // POST /categories
     public function store(Request $request)
     {
-        $category = Category::create($request->all());
+        $validated = $request->validate([
+            'nombre' => 'required|string|max:255',
+            'abreviatura' => 'nullable|string|max:50',
+            'descripcion' => 'nullable|string',
+            'grupo' => 'nullable|string|max:100',
+            'estados_id' => 'required|exists:statuses,id',
+        ]);
+
+        $category = Category::create($validated);
+
         return response()->json($category, 201);
     }
 
@@ -42,7 +51,16 @@ class CategoryController extends Controller
             return response()->json(['message' => 'Categoría no encontrada'], 404);
         }
 
-        $category->update($request->all());
+        $validated = $request->validate([
+            'nombre' => 'sometimes|required|string|max:255',
+            'abreviatura' => 'sometimes|nullable|string|max:50',
+            'descripcion' => 'sometimes|nullable|string',
+            'grupo' => 'sometimes|nullable|string|max:100',
+            'estados_id' => 'sometimes|required|exists:statuses,id',
+        ]);
+
+        $category->update($validated);
+
         return response()->json($category);
     }
 
@@ -56,6 +74,7 @@ class CategoryController extends Controller
         }
 
         $category->delete();
+
         return response()->json(['message' => 'Categoría eliminada correctamente']);
     }
 }

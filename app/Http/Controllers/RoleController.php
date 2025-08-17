@@ -29,7 +29,14 @@ class RoleController extends Controller
     // POST /roles
     public function store(Request $request)
     {
-        $role = Role::create($request->all());
+        $validated = $request->validate([
+            'nombre' => 'required|string|max:25',
+            'descripcion' => 'nullable|string',
+            'estados_id' => 'required|exists:statuses,id',
+        ]);
+
+        $role = Role::create($validated);
+
         return response()->json($role, 201);
     }
 
@@ -42,7 +49,14 @@ class RoleController extends Controller
             return response()->json(['message' => 'Rol no encontrado'], 404);
         }
 
-        $role->update($request->all());
+        $validated = $request->validate([
+            'nombre' => 'sometimes|required|string|max:25',
+            'descripcion' => 'sometimes|nullable|string',
+            'estados_id' => 'sometimes|required|exists:statuses,id',
+        ]);
+
+        $role->update($validated);
+
         return response()->json($role);
     }
 
@@ -56,6 +70,7 @@ class RoleController extends Controller
         }
 
         $role->delete();
+
         return response()->json(['message' => 'Rol eliminado correctamente']);
     }
 }

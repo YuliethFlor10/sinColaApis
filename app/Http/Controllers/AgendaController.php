@@ -10,15 +10,14 @@ class AgendaController extends Controller
     // GET /agendas
     public function index()
     {
-        // Incluye relaciones con usuarios, servicios y citas
-        $agendas = Agenda::with(['user', 'service', 'appointment'])->get();
+        $agendas = Agenda::with(['business', 'user'])->get();
         return response()->json($agendas);
     }
 
     // GET /agendas/{id}
     public function show($id)
     {
-        $agenda = Agenda::with(['user', 'service', 'appointment'])->find($id);
+        $agenda = Agenda::with(['business', 'user'])->find($id);
 
         if (!$agenda) {
             return response()->json(['message' => 'Agenda no encontrada'], 404);
@@ -30,7 +29,15 @@ class AgendaController extends Controller
     // POST /agendas
     public function store(Request $request)
     {
-        $agenda = Agenda::create($request->all());
+        $validated = $request->validate([
+            'nombre' => 'required|string|max:100',
+            'horarios' => 'required|array',
+            'activo' => 'boolean',
+            'negocios_id' => 'required|exists:businesses,id',
+            'usuarios_id' => 'required|exists:users,id',
+        ]);
+
+        $agenda = Agenda::create($validated);
 
         return response()->json($agenda, 201);
     }
@@ -44,7 +51,15 @@ class AgendaController extends Controller
             return response()->json(['message' => 'Agenda no encontrada'], 404);
         }
 
-        $agenda->update($request->all());
+        $validated = $request->validate([
+            'nombre' => 'sometimes|required|string|max:100',
+            'horarios' => 'sometimes|required|array',
+            'activo' => 'sometimes|boolean',
+            'negocios_id' => 'sometimes|required|exists:businesses,id',
+            'usuarios_id' => 'sometimes|required|exists:users,id',
+        ]);
+
+        $agenda->update($validated);
 
         return response()->json($agenda);
     }

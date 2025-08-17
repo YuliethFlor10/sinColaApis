@@ -29,7 +29,14 @@ class StatusController extends Controller
     // POST /statuses
     public function store(Request $request)
     {
-        $status = Status::create($request->all());
+        $validated = $request->validate([
+            'nombre' => 'required|string|max:50',
+            'descripcion' => 'nullable|string',
+            'grupo' => 'nullable|string|max:30',
+        ]);
+
+        $status = Status::create($validated);
+
         return response()->json($status, 201);
     }
 
@@ -42,7 +49,14 @@ class StatusController extends Controller
             return response()->json(['message' => 'Estado no encontrado'], 404);
         }
 
-        $status->update($request->all());
+        $validated = $request->validate([
+            'nombre' => 'sometimes|required|string|max:50',
+            'descripcion' => 'sometimes|nullable|string',
+            'grupo' => 'sometimes|nullable|string|max:30',
+        ]);
+
+        $status->update($validated);
+
         return response()->json($status);
     }
 
@@ -56,6 +70,7 @@ class StatusController extends Controller
         }
 
         $status->delete();
+
         return response()->json(['message' => 'Estado eliminado correctamente']);
     }
 }

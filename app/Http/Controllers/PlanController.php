@@ -29,7 +29,15 @@ class PlanController extends Controller
     // POST /plans
     public function store(Request $request)
     {
-        $plan = Plan::create($request->all());
+        $validated = $request->validate([
+            'nombre' => 'required|string|max:100',
+            'caracteristicas' => 'nullable|json',
+            'descuentos' => 'nullable|integer|min:0',
+            'estados_id' => 'required|exists:statuses,id',
+        ]);
+
+        $plan = Plan::create($validated);
+
         return response()->json($plan, 201);
     }
 
@@ -42,7 +50,15 @@ class PlanController extends Controller
             return response()->json(['message' => 'Plan no encontrado'], 404);
         }
 
-        $plan->update($request->all());
+        $validated = $request->validate([
+            'nombre' => 'sometimes|required|string|max:100',
+            'caracteristicas' => 'sometimes|nullable|json',
+            'descuentos' => 'sometimes|nullable|integer|min:0',
+            'estados_id' => 'sometimes|required|exists:statuses,id',
+        ]);
+
+        $plan->update($validated);
+
         return response()->json($plan);
     }
 
@@ -56,6 +72,7 @@ class PlanController extends Controller
         }
 
         $plan->delete();
+
         return response()->json(['message' => 'Plan eliminado correctamente']);
     }
 }
