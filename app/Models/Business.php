@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Customization;
 
 class Business extends Model
 {
@@ -52,5 +54,9 @@ class Business extends Model
     public function users()
     {
         return $this->hasMany(User::class, 'negocios_id');
+    }
+    public function customization(): HasOne
+    {
+    return $this->hasOne(Customization::class, 'negocios_id');
     }
 }

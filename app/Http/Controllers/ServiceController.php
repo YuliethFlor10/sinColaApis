@@ -38,6 +38,10 @@ class ServiceController extends Controller
             'estados_id' => 'required|exists:statuses,id',
             'negocios_id' => 'required|exists:businesses,id',
             'precio' => 'nullable|numeric|min:0',
+            'orden_visualizacion' => 'nullable|integer',
+            'recomendaciones' => 'nullable|string',
+            'requiere_cita_previa' => 'boolean',
+            'color_servicio' => 'nullable|string|size:7',
         ]);
 
         $service = Service::create($validated);
@@ -63,6 +67,10 @@ class ServiceController extends Controller
             'estados_id' => 'sometimes|required|exists:statuses,id',
             'negocios_id' => 'sometimes|required|exists:businesses,id',
             'precio' => 'sometimes|nullable|numeric|min:0',
+            'orden_visualizacion' => 'sometimes|nullable|integer',
+            'recomendaciones' => 'sometimes|nullable|string',
+            'requiere_cita_previa' => 'sometimes|boolean',
+            'color_servicio' => 'sometimes|nullable|string|size:7',
         ]);
 
         $service->update($validated);

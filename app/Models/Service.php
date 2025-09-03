@@ -18,6 +18,10 @@ class Service extends Model
         'tipos_id',
         'estados_id',
         'negocios_id',
+        'orden_visualizacion',
+        'recomendaciones',
+        'requiere_cita_previa',
+        'color_servicio',
     ];
 
     public function category()
