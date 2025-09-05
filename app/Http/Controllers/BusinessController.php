@@ -9,12 +9,36 @@ use Illuminate\Validation\Rule;
 class BusinessController extends Controller
 {
     // GET /businesses
-    public function index()
+    public function index(Request $request)
+{
+
+    $filters = $request->only([
+        'estado',
+        'tipo_servicio',
+        'plan',
+        'search',
+        'con_servicios',
+        'atiende_hoy',
+        'con_disponibilidad',
+        'fecha_disponibilidad',
+    ]);
+
+    $businesses = Business::with(['status', 'serviceType', 'plan', 'services', 'customization'])
+        ->filtrar($filters)
+        ->get();
+
+    if ($businesses->isEmpty()) {
+        return response()->json(['message' => 'No se encuentra ningún negocio con los filtros aplicados.'], 404);
+    }
+
+    return response()->json($businesses);
+}
+    /*public function index()
     {
         // Cargar relaciones estados, tipoServicio, plan
         $businesses = Business::with(['status', 'serviceType', 'plan'])->get();
         return response()->json($businesses);
-    }
+    }*/
 
     // GET /businesses/{id}
     public function show($id)

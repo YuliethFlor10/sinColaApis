@@ -8,11 +8,19 @@ use Illuminate\Http\Request;
 class AppointmentController extends Controller
 {
     // GET /appointments
-    public function index()
+    public function index(Request $request)
+{
+    $appointments = Appointment::filtrar($request->all())->get();
+    if ($appointments->isEmpty()) {
+        return response()->json(['message' => 'No se encuentra ninguna cita con los filtros aplicados.'], 404);
+    }
+    return response()->json($appointments);
+}
+    /*public function index()
     {
         $appointments = Appointment::with(['user', 'business', 'status', 'service'])->get();
         return response()->json($appointments);
-    }
+    }*/
 
     // GET /appointments/{id}
     public function show($id)

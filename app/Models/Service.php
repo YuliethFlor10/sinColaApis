@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Traits\HasDynamicFilters;
 
 class Service extends Model
 {
+    use HasDynamicFilters;
+
     public const CREATED_AT = 'creado_en';
     public const UPDATED_AT = 'actualizado_en';
 
@@ -23,6 +26,18 @@ class Service extends Model
         'requiere_cita_previa',
         'color_servicio',
     ];
+    //lista blanca de filtros permitidos para filtrar dinámicamente
+    protected $allowedFilters = [
+        'delNegocio',
+        'porEstado',
+        'porTipo',
+        'entrePrecio',
+        'duracionMaxima',
+        'requierenCita',
+        'buscar',
+        'populares',
+    ];
+    // Relaciones
 
     public function category()
     {
@@ -42,6 +57,59 @@ class Service extends Model
     public function appointments()
     {
         return $this->hasMany(Appointment::class, 'servicios_id');
+    }
+     // === SCOPES ===
+
+    public function scopeDelNegocio($query, $negocioId)
+    {
+        return $query->where('negocios_id', $negocioId);
+    }
+
+    public function scopePorEstado($query, $estado)
+    {
+        return is_numeric($estado)
+            ? $query->where('estados_id', $estado)
+            : $query->whereHas('status', fn($q) => $q->whereRaw('LOWER(nombre) = ?', [strtolower($estado)]));
+    }
+
+    public function scopePorTipo($query, $tipo)
+    {
+        return $query->whereHas('category', fn($q) => $q->where('nombre', $tipo));
+    }
+
+    public function scopeEntrePrecio($query, $rango)
+    {
+        [$min, $max] = explode(',', $rango);
+        return $query->whereBetween('precio', [$min, $max]);
+    }
+
+    public function scopeDuracionMaxima($query, $minutos)
+    {
+        return $query->where('tiempo_estimado', '<=', $minutos);
+    }
+
+    public function scopeRequierenCita($query)
+    {
+        return $query->where('requiere_cita_previa', true);
+    }
+
+    public function scopeBuscar($query, $termino)
+    {
+        return $query->where(function ($q) use ($termino) {
+            $q->where('nombre', 'LIKE', "%{$termino}%")
+              ->orWhere('descripcion', 'LIKE', "%{$termino}%")
+              ->orWhere('abreviatura', 'LIKE', "%{$termino}%");
+        });
+    }
+
+    public function scopePopulares($query, $limit = 10)
+    {
+        return $query->withCount(['appointments' => function ($q) {
+                    $q->whereHas('status', fn($sq) =>
+                        $sq->whereIn('nombre', ['Confirmada', 'Completada']));
+                }])
+                ->orderByDesc('appointments_count')
+                ->limit($limit);
     }
 }
 

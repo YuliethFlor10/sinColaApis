@@ -8,11 +8,19 @@ use Illuminate\Http\Request;
 class PlanController extends Controller
 {
     // GET /plans
-    public function index()
+    public function index(Request $request)
+{
+    $planes = Plan::filtrar($request->all())->get();
+    if ($planes->isEmpty()) {
+        return response()->json(['message' => 'No se encuentra ningún plan con los filtros aplicados.'], 404);
+    }
+    return response()->json($planes);
+}
+    /*public function index()
     {
         $plans = Plan::with('status')->get();
         return response()->json($plans);
-    }
+    }*/
 
     // GET /plans/{id}
     public function show($id)

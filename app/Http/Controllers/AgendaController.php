@@ -8,11 +8,20 @@ use Illuminate\Http\Request;
 class AgendaController extends Controller
 {
     // GET /agendas
-    public function index()
+    public function index(Request $request)
+{
+    $agendas = Agenda::filtrar($request->all())->get();
+    if ($agendas->isEmpty()) {
+        return response()->json(['message' => 'No se encuentra ninguna agenda con los filtros aplicados.'], 404);
+    }
+    return response()->json($agendas);
+}
+
+    /*public function index()
     {
         $agendas = Agenda::with(['business', 'user'])->get();
         return response()->json($agendas);
-    }
+    }*/
 
     // GET /agendas/{id}
     public function show($id)

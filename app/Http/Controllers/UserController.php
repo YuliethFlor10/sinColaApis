@@ -9,10 +9,37 @@ use Illuminate\Validation\Rule;
 class UserController extends Controller
 {
     // GET /users
-    public function index()
+    //public function index()
+     public function index(Request $request)
     {
         // Cargar relaciones estado, rol, tipoIdentificacion, negocio
-        $users = User::with(['status', 'role', 'identificationType', 'business'])->get();
+       /* $users = User::with(['status', 'role', 'identificationType', 'business'])->get();
+        return response()->json($users);*/
+        $filters = $request->only([
+            'del_negocio',
+            'con_rol',
+            'con_estado',
+            'activos',
+            'empleados',
+            'clientes',
+            'con_tipo_id',
+            'por_genero',
+            'buscar_por_nombre',
+        ]);
+
+         // Filtro combinado: entre_edades
+        if ($request->filled(['edad_min', 'edad_max'])) {
+            $filters['entre_edades'] = [$request->edad_min, $request->edad_max];
+        }
+
+        $users = User::with(['status', 'role', 'identificationType', 'business'])
+            ->filtrar($filters)
+            ->paginate(15);
+
+        if ($users->isEmpty()) {
+            return response()->json(['message' => 'No se encuentra ningún usuario con los filtros aplicados.'], 404);
+        }
+
         return response()->json($users);
     }
 

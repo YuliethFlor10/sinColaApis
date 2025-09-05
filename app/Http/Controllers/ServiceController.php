@@ -8,11 +8,21 @@ use Illuminate\Http\Request;
 class ServiceController extends Controller
 {
     // GET /services
-    public function index()
+    public function index(Request $request)
+{
+    $services = Service::with(['status', 'category'])
+        ->filtrar($request->all())
+        ->get();
+    if ($services->isEmpty()) {
+        return response()->json(['message' => 'No se encuentra ningún servicio con los filtros aplicados.'], 404);
+    }
+    return response()->json($services);
+}
+   /* public function index()
     {
         $services = Service::with(['category', 'status', 'business'])->get();
         return response()->json($services);
-    }
+    }*/
 
     // GET /services/{id}
     public function show($id)
