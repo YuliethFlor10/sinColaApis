@@ -30,18 +30,14 @@ class User extends Model
         'roles_id',
         'negocios_id',
     ];
-     // Lista blanca de filtros permitidos para filtrar dinámicamente
-    protected array $allowedFilters = [
-        'del_negocio',
-        'con_rol',
-        'activos',
-        'con_estado',
-        'empleados',
-        'clientes',
-        'con_tipo_id',
-        'entre_edades',
-        'por_genero',
-        'buscar_por_nombre',
+    protected $allowedFilters = [
+        'del_negocio', 'con_rol', 'activos', 'con_estado', 'empleados', 'clientes', 'con_tipo_id', 'entre_edades', 'por_genero', 'buscar_por_nombre',
+    ];
+    protected $allowedSorts = [
+        'id', 'nombres', 'apellidos', 'email', 'nacimiento', 'genero', 'created_at'
+    ];
+    protected $allowedIncludes = [
+        'status', 'role', 'business', 'agendas', 'appointments'
     ];
 
      // Relaciones

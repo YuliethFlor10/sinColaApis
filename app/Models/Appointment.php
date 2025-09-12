@@ -20,23 +20,27 @@ class Appointment extends Model
         'tiempo_estimado',
         'descripcion_cancel',
     ];
-    //lista blanca de filtros permitidos para filtrar dinámicamente
     protected $allowedFilters = [
-    'negocio_id',
-    'usuario_id',
-    'estado',
-    'fecha',
-    'fecha_inicio',
-    'fecha_fin',
-    'servicio_id',
-    'hora_inicio',
-    'hora_fin',
-    'hoy',
-    'proximas',
-    'esta_semana',
-    'con_retraso',
-    'minutos_retraso',
-];
+        'negocio_id', 'usuario_id', 'estado', 'fecha', 'fecha_inicio', 'fecha_fin', 'servicio_id', 'hora_inicio', 'hora_fin', 'hoy', 'proximas', 'esta_semana', 'con_retraso', 'minutos_retraso',
+    ];
+    protected $allowedSorts = [
+        'id', 'fecha', 'created_at'
+    ];
+    protected $allowedIncludes = [
+        'user', 'business', 'service', 'status'
+    ];
+    // Scope para usuario_id
+    public function scopeUsuarioId($query, $valor) {
+        return $query->where('usuarios_id', $valor);
+    }
+    // Scope para negocio_id
+    public function scopeNegocioId($query, $valor) {
+        return $query->where('negocios_id', $valor);
+    }
+    // Scope para servicio_id
+    public function scopeServicioId($query, $valor) {
+        return $query->where('servicios_id', $valor);
+    }
 
     // Relaciones
 

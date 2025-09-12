@@ -19,10 +19,14 @@ class Agenda extends Model
         'negocios_id',
         'usuarios_id',
     ];
-        protected $allowedFilters = [
-        'activas',
-        'delNegocio',
-        'delEmpleado',
+    protected $allowedFilters = [
+        'activas', 'delNegocio', 'delEmpleado',
+    ];
+    protected $allowedSorts = [
+        'id', 'nombre', 'created_at'
+    ];
+    protected $allowedIncludes = [
+        'business', 'user'
     ];
 
     protected $casts = [

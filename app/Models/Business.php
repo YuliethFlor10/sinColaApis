@@ -24,16 +24,14 @@ class Business extends Model
         'tipo_servicio_id',
         'planes_id',
     ];
-     // === LISTA BLANCA DE FILTROS DINÁMICOS ===
     protected $allowedFilters = [
-        'estado',
-        'tipo_servicio',
-        'plan',
-        'search',
-        'con_servicios',
-        'atiende_hoy',
-        'con_disponibilidad',
-        'fecha_disponibilidad',
+        'estado', 'tipo_servicio', 'plan', 'search', 'con_servicios', 'atiende_hoy', 'con_disponibilidad', 'fecha_disponibilidad',
+    ];
+    protected $allowedSorts = [
+        'id', 'nombre', 'nit', 'created_at'
+    ];
+    protected $allowedIncludes = [
+        'status', 'serviceType', 'plan', 'services', 'agendas', 'appointments', 'users', 'customization'
     ];
     // Relaciones
 

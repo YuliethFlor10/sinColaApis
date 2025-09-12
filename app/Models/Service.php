@@ -26,16 +26,14 @@ class Service extends Model
         'requiere_cita_previa',
         'color_servicio',
     ];
-    //lista blanca de filtros permitidos para filtrar dinámicamente
     protected $allowedFilters = [
-        'delNegocio',
-        'porEstado',
-        'porTipo',
-        'entrePrecio',
-        'duracionMaxima',
-        'requierenCita',
-        'buscar',
-        'populares',
+        'delNegocio', 'porEstado', 'porTipo', 'entrePrecio', 'duracionMaxima', 'requierenCita', 'buscar', 'populares',
+    ];
+    protected $allowedSorts = [
+        'id', 'nombre', 'precio', 'created_at'
+    ];
+    protected $allowedIncludes = [
+        'category', 'status', 'business', 'appointments'
     ];
     // Relaciones
 

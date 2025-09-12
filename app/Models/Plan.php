@@ -19,8 +19,13 @@ class Plan extends Model
         'estados_id',
     ];
     protected $allowedFilters = [
-        'activos',
-        'conDescuento',
+        'activos', 'conDescuento',
+    ];
+    protected $allowedSorts = [
+        'id', 'nombre', 'created_at'
+    ];
+    protected $allowedIncludes = [
+        'status', 'businesses'
     ];
 
     protected $casts = [
