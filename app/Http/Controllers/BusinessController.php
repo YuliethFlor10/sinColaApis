@@ -63,7 +63,7 @@ class BusinessController extends Controller
             'telefono' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:100',
             'estados_id' => 'required|integer|exists:statuses,id',
-            'plan_id' => 'required|integer|exists:plans,id',
+            'planes_id' => 'required|integer|exists:plans,id',
             'tipo_servicio_id' => 'nullable|integer|exists:categories,id',
         ]);
 
