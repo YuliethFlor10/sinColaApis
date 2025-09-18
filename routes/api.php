@@ -1,8 +1,8 @@
 <?php
 
-
 use App\Http\Controllers\AgendaController;
 use App\Http\Controllers\AppointmentController;
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BusinessController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\PlanController;
@@ -13,26 +13,27 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\CustomizationController;
 use Illuminate\Support\Facades\Route;
 
+// Ruta pública para login
+Route::post('login', [AuthController::class, 'login']);
 
-
-Route::apiResource('statuses', StatusController::class);  //sin delete por dependencias, eliminar primero los appointments y agendas
-Route::apiResource('plans', PlanController::class); //sin delete por dependencias, eliminar primero los negocios
+// Rutas públicas sin autenticación (si quieres que estén públicas)
+Route::apiResource('statuses', StatusController::class);
+Route::apiResource('plans', PlanController::class);
 Route::apiResource('roles', RoleController::class);
-Route::apiResource('businesses', BusinessController::class);
-Route::apiResource('users', UserController::class);
-Route::apiResource('categories', CategoryController::class); //sin delete por dependencias, eliminar primero los servicios
-Route::apiResource('services', ServiceController::class); //sin delete por dependencias, eliminar primero los appointments y agendas
-Route::apiResource('agendas', AgendaController::class);
-Route::apiResource('appointments', AppointmentController::class);
-Route::apiResource('customizations', CustomizationController::class);
 
-
-// Ruta especial para obtener personalización por negocio
-Route::get('businesses/{businessId}/customization', [CustomizationController::class, 'showByBusiness'])
-    ->name('customizations.showByBusiness');
-
-// Rutas agrupadas con middleware si usas autenticación
-/*Route::middleware(['auth:sanctum'])->group(function () {
+// Rutas protegidas con autenticación Sanctum
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::apiResource('businesses', BusinessController::class);
+    Route::apiResource('users', UserController::class);
+    Route::apiResource('categories', CategoryController::class);
+    Route::apiResource('services', ServiceController::class);
+    Route::apiResource('agendas', AgendaController::class);
+    Route::apiResource('appointments', AppointmentController::class);
     Route::apiResource('customizations', CustomizationController::class);
-    Route::get('businesses/{businessId}/customization', [CustomizationController::class, 'showByBusiness']);
-});*/
+
+    // Ruta especial protegida
+    Route::get('businesses/{businessId}/customization', [CustomizationController::class, 'showByBusiness'])
+        ->name('customizations.showByBusiness');
+
+    // Si quieres agregar más rutas protegidas, las pones aquí
+});

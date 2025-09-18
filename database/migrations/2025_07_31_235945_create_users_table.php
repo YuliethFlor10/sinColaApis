@@ -17,6 +17,7 @@ return new class extends Migration {
             $table->date('nacimiento')->nullable();
             $table->enum('genero', ['M', 'F', 'O'])->default('O');
             $table->string('clave', 255);
+            $table->rememberToken();
             $table->unsignedBigInteger('tipo_identificacion_id');
             $table->string('identificacion', 20);
             $table->string('celular', 20)->nullable();
