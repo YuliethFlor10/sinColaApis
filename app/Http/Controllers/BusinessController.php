@@ -58,11 +58,13 @@ class BusinessController extends Controller
         $validated = $request->validate([
             'nit' => 'nullable|string|max:20|unique:businesses,nit',
             'nombre' => 'required|string|max:150',
-            'direccion' => 'nullable|string',
+            'descripcion' => 'nullable|string|max:255',
+            'direccion' => 'nullable|string|max:255',
             'telefono' => 'nullable|string|max:20',
-            'estados_id' => 'required|exists:statuses,id',
-            'tipo_servicio_id' => 'required|exists:categories,id',
-            'planes_id' => 'required|exists:plans,id',
+            'email' => 'nullable|email|max:100',
+            'estados_id' => 'required|integer|exists:statuses,id',
+            'plan_id' => 'required|integer|exists:plans,id',
+            'tipo_servicio_id' => 'nullable|integer|exists:categories,id',
         ]);
 
         $business = Business::create($validated);

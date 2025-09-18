@@ -59,25 +59,25 @@ class UserController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'nombres' => 'required|string|max:30',
-            'apellidos' => 'required|string|max:30',
+            'nombres' => 'required|string|max:100',
+            'apellidos' => 'required|string|max:100',
             'email' => 'required|email|unique:users,email',
             'nacimiento' => 'nullable|date',
-            'genero' => 'nullable|in:M,F,O',
+            'genero' => 'nullable|string|max:1',
             'clave' => 'required|string|min:6',
-            'tipo_identificacion_id' => 'required|exists:categories,id',
-            'identificacion' => 'required|string|max:20',
+            'tipo_identificacion_id' => 'required|integer|exists:categories,id',
+            'identificacion' => 'required|string|max:30',
             'celular' => 'nullable|string|max:20',
             'telefono' => 'nullable|string|max:20',
-            'direccion' => 'nullable|string',
-            'terminos_condiciones' => 'boolean',
-            'estados_id' => 'required|exists:statuses,id',
-            'roles_id' => 'required|exists:roles,id',
-            'negocios_id' => 'nullable|exists:businesses,id',
+            'direccion' => 'nullable|string|max:255',
+            'terminos_condiciones' => 'required|boolean',
+            'estados_id' => 'required|integer|exists:statuses,id',
+            'roles_id' => 'required|integer|exists:roles,id',
+            'negocios_id' => 'nullable|integer|exists:businesses,id',
         ]);
 
-        // Encriptar la clave antes de guardar
-        $validated['clave'] = bcrypt($validated['clave']);
+        // Encriptar la clave
+        $validated['clave'] = \Illuminate\Support\Facades\Hash::make($validated['clave']);
 
         $user = User::create($validated);
 

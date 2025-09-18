@@ -20,7 +20,6 @@ class User extends Authenticatable
     {
         return $this->clave;
     }
-    use HasApiTokens, Notifiable, HasDynamicFilters, HasFactory;
 
     public const CREATED_AT = 'creado_en';
     public const UPDATED_AT = 'actualizado_en';
