@@ -9,18 +9,17 @@ class AppointmentController extends Controller
 {
     // GET /appointments
     public function index(Request $request)
-{
-    $appointments = Appointment::filtrar($request->all())->get();
-    if ($appointments->isEmpty()) {
-        return response()->json(['message' => 'No se encuentra ninguna cita con los filtros aplicados.'], 404);
-    }
-    return response()->json($appointments);
-}
-    /*public function index()
     {
-        $appointments = Appointment::with(['user', 'business', 'status', 'service'])->get();
+        $appointments = Appointment::with(['user', 'business', 'status', 'service'])
+            ->filtrar($request->all())
+            ->get();
+
+        if ($appointments->isEmpty()) {
+            return response()->json(['message' => 'No se encuentra ninguna cita con los filtros aplicados.'], 404);
+        }
+
         return response()->json($appointments);
-    }*/
+    }
 
     // GET /appointments/{id}
     public function show($id)
@@ -51,6 +50,9 @@ class AppointmentController extends Controller
 
         $appointment = Appointment::create($validated);
 
+        // Recargar con relaciones
+        $appointment = Appointment::with(['user', 'business', 'status', 'service'])->find($appointment->id);
+
         return response()->json($appointment, 201);
     }
 
@@ -76,6 +78,9 @@ class AppointmentController extends Controller
         ]);
 
         $appointment->update($validated);
+
+        // Recargar con relaciones
+        $appointment = Appointment::with(['user', 'business', 'status', 'service'])->find($appointment->id);
 
         return response()->json($appointment);
     }
