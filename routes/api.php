@@ -14,7 +14,7 @@ use App\Http\Controllers\CustomizationController;
 use Illuminate\Support\Facades\Route;
 
 // Ruta pública para login
-Route::post('login', [AuthController::class, 'login']);
+Route::post('login', [AuthController::class, 'login'])->name('login');
 
 // Rutas públicas sin autenticación (si quieres que estén públicas)
 Route::apiResource('statuses', StatusController::class);
@@ -31,9 +31,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::apiResource('appointments', AppointmentController::class);
     Route::apiResource('customizations', CustomizationController::class);
 
-    // Ruta especial protegida
     Route::get('businesses/{businessId}/customization', [CustomizationController::class, 'showByBusiness'])
         ->name('customizations.showByBusiness');
-
-    // Si quieres agregar más rutas protegidas, las pones aquí
 });
