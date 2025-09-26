@@ -28,9 +28,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::apiResource('categories', CategoryController::class);
     Route::apiResource('services', ServiceController::class);
     Route::apiResource('agendas', AgendaController::class);
-    Route::apiResource('appointments', AppointmentController::class);
     Route::apiResource('customizations', CustomizationController::class);
 
     Route::get('businesses/{businessId}/customization', [CustomizationController::class, 'showByBusiness'])
         ->name('customizations.showByBusiness');
 });
+
+// Rutas públicas para citas necesarias por el frontend Angular
+Route::apiResource('appointments', AppointmentController::class);
+
+// Rutas adicionales específicas para appointments
+Route::patch('appointments/{id}/status', [AppointmentController::class, 'updateStatus']);
+Route::post('appointments/check-availability', [AppointmentController::class, 'checkAvailability']);

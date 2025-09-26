@@ -3,68 +3,102 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Carbon\Carbon;
 
 class Appointment extends Model
 {
-    public const CREATED_AT = 'creado_en';
-    public const UPDATED_AT = 'actualizado_en';
+    public const CREATED_AT = 'created_at';
+    public const UPDATED_AT = 'updated_at';
 
     protected $fillable = [
+        // Información personal del cliente
+        'tipo_documento',
+        'numero_documento', 
+        'nombre',
+        'email',
+        'fecha_nacimiento',
+        'numero_telefono',
+        
+        // Información del servicio y cita
+        'tipo_cita',
+        'personal_servicio',
+        'fecha_cita',
+        'hora_cita',
+        'fecha_hora_completa',
+        
+        // Relaciones y campos del sistema
         'usuarios_id',
         'negocios_id',
         'servicios_id',
         'estados_id',
         'nota',
-        'fecha',
-        'fecha_fin',
         'tiempo_estimado',
+        'fecha_fin',
         'descripcion_cancel',
+        
+        // Campo heredado (mantener compatibilidad)
+        'atendido_por_id'
     ];
+
+    protected $casts = [
+        'fecha_nacimiento' => 'date',
+        'fecha_cita' => 'date',
+        'hora_cita' => 'datetime:H:i',
+        'fecha_hora_completa' => 'datetime',
+        'fecha_fin' => 'datetime',
+    ];
+
     protected $allowedFilters = [
-        'negocio_id', 'usuario_id', 'estado', 'fecha', 'fecha_inicio', 'fecha_fin', 'servicio_id', 'hora_inicio', 'hora_fin', 'hoy', 'proximas', 'esta_semana', 'con_retraso', 'minutos_retraso',
+        'negocio_id', 'usuario_id', 'estado', 'fecha_cita', 'fecha_inicio', 'fecha_fin', 
+        'servicio_id', 'hora_inicio', 'hora_fin', 'hoy', 'proximas', 'esta_semana', 
+        'con_retraso', 'minutos_retraso', 'tipo_documento', 'numero_documento', 'email'
     ];
+
     protected $allowedSorts = [
-        'id', 'fecha', 'created_at'
+        'id', 'fecha_cita', 'fecha_hora_completa', 'created_at', 'nombre'
     ];
+
     protected $allowedIncludes = [
-        'user', 'business', 'service', 'status'
+        'user', 'business', 'service', 'status', 'staff'
     ];
-    // Scope para usuario_id
+
+    // === MUTATORS Y ACCESSORS ===
+    
+    // Automáticamente combinar fecha y hora
+    public function setFechaCitaAttribute($value)
+    {
+        $this->attributes['fecha_cita'] = $value;
+        $this->updateFechaHoraCompleta();
+    }
+
+    public function setHoraCitaAttribute($value)
+    {
+        $this->attributes['hora_cita'] = $value;
+        $this->updateFechaHoraCompleta();
+    }
+
+    private function updateFechaHoraCompleta()
+    {
+        if (isset($this->attributes['fecha_cita']) && isset($this->attributes['hora_cita'])) {
+            $fecha = Carbon::parse($this->attributes['fecha_cita']);
+            $hora = Carbon::parse($this->attributes['hora_cita']);
+            $this->attributes['fecha_hora_completa'] = $fecha->setTime($hora->hour, $hora->minute)->toDateTimeString();
+        }
+    }
+
+    // === SCOPES ACTUALIZADOS ===
+
     public function scopeUsuarioId($query, $valor) {
         return $query->where('usuarios_id', $valor);
     }
-    // Scope para negocio_id
+
     public function scopeNegocioId($query, $valor) {
         return $query->where('negocios_id', $valor);
     }
-    // Scope para servicio_id
+
     public function scopeServicioId($query, $valor) {
         return $query->where('servicios_id', $valor);
     }
-
-    // Relaciones
-
-    public function user()
-    {
-        return $this->belongsTo(User::class, 'usuarios_id');
-    }
-
-    public function business()
-    {
-        return $this->belongsTo(Business::class, 'negocios_id');
-    }
-
-    public function service()
-    {
-        return $this->belongsTo(Service::class, 'servicios_id');
-    }
-
-    public function status()
-    {
-        return $this->belongsTo(Status::class, 'estados_id');
-    }
-
-   // === SCOPES PRINCIPALES ===
 
     public function scopeDelNegocio($query, $negocioId)
     {
@@ -103,39 +137,39 @@ class Appointment extends Model
             return $query->where('estados_id', $estado);
         }
 
-        // Normaliza a minúsculas y sin tildes para comparar
         $estadoNormalizado = mb_strtolower($estado);
         return $query->whereHas('status', function ($q) use ($estadoNormalizado) {
             $q->whereRaw('LOWER(nombre) = ?', [$estadoNormalizado]);
         });
     }
 
+    // Actualizar scopes para usar fecha_cita en lugar de fecha
     public function scopeEnFecha($query, $fecha)
     {
-        return $query->whereDate('fecha', $fecha);
+        return $query->whereDate('fecha_cita', $fecha);
     }
 
     public function scopeEntreFechas($query, $fechaInicio, $fechaFin)
     {
-        return $query->whereDate('fecha', '>=', $fechaInicio)
-                     ->whereDate('fecha', '<=', $fechaFin);
+        return $query->whereDate('fecha_cita', '>=', $fechaInicio)
+                     ->whereDate('fecha_cita', '<=', $fechaFin);
     }
 
     public function scopeHoy($query)
     {
-        return $query->whereDate('fecha', now()->format('Y-m-d'));
+        return $query->whereDate('fecha_cita', now()->format('Y-m-d'));
     }
 
     public function scopeProximas($query)
     {
-        return $query->where('fecha', '>', now());
+        return $query->where('fecha_hora_completa', '>', now());
     }
 
     public function scopeEstaSemana($query)
     {
-        return $query->whereBetween('fecha', [
-            now()->startOfWeek(),
-            now()->endOfWeek()
+        return $query->whereBetween('fecha_cita', [
+            now()->startOfWeek()->format('Y-m-d'),
+            now()->endOfWeek()->format('Y-m-d')
         ]);
     }
 
@@ -146,26 +180,73 @@ class Appointment extends Model
 
     public function scopeEntreHoras($query, $horaInicio, $horaFin)
     {
-        return $query->whereTime('fecha', '>=', $horaInicio)
-                     ->whereTime('fecha', '<=', $horaFin);
+        return $query->whereTime('hora_cita', '>=', $horaInicio)
+                     ->whereTime('hora_cita', '<=', $horaFin);
     }
 
     public function scopeConRetraso($query, $minutosRetraso = 15)
     {
-        return $query->where('fecha', '<', now()->subMinutes($minutosRetraso))
+        return $query->where('fecha_hora_completa', '<', now()->subMinutes($minutosRetraso))
                      ->whereHas('status', function ($q) {
-                         $q->where('nombre', 'Confirmada');
+                         $q->whereRaw('LOWER(nombre) = ?', ['confirmada']);
                      });
     }
 
+    // Nuevos scopes para los campos adicionales
+    public function scopePorTipoDocumento($query, $tipoDocumento)
+    {
+        return $query->where('tipo_documento', $tipoDocumento);
+    }
 
-    // === SCOPE FILTRAR DINÁMICO ===
+    public function scopePorNumeroDocumento($query, $numeroDocumento)
+    {
+        return $query->where('numero_documento', $numeroDocumento);
+    }
+
+    public function scopePorEmail($query, $email)
+    {
+        return $query->where('email', 'like', '%' . $email . '%');
+    }
+
+    public function scopePorNombre($query, $nombre)
+    {
+        return $query->where('nombre', 'like', '%' . $nombre . '%');
+    }
+
+    // === RELACIONES ===
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'usuarios_id');
+    }
+
+    public function staff()
+    {
+        return $this->belongsTo(User::class, 'atendido_por_id');
+    }
+
+    public function business()
+    {
+        return $this->belongsTo(Business::class, 'negocios_id');
+    }
+
+    public function service()
+    {
+        return $this->belongsTo(Service::class, 'servicios_id');
+    }
+
+    public function status()
+    {
+        return $this->belongsTo(Status::class, 'estados_id');
+    }
+
+    // === SCOPE FILTRAR DINÁMICO ACTUALIZADO ===
 
     public function scopeFiltrar($query, $filters)
     {
         foreach ($filters as $filter => $value) {
             if (!in_array($filter, $this->allowedFilters)) {
-                continue; // ignorar filtros no permitidos
+                continue;
             }
 
             switch ($filter) {
@@ -181,7 +262,7 @@ class Appointment extends Model
                     $query->porEstado($value);
                     break;
 
-                case 'fecha':
+                case 'fecha_cita':
                     $query->enFecha($value);
                     break;
 
@@ -234,6 +315,18 @@ class Appointment extends Model
                     }
                     break;
 
+                case 'tipo_documento':
+                    $query->porTipoDocumento($value);
+                    break;
+
+                case 'numero_documento':
+                    $query->porNumeroDocumento($value);
+                    break;
+
+                case 'email':
+                    $query->porEmail($value);
+                    break;
+
                 case 'minutos_retraso':
                     // Se maneja en 'con_retraso'
                     break;
@@ -243,4 +336,21 @@ class Appointment extends Model
         return $query;
     }
 
+    // === MÉTODOS AUXILIARES ===
+
+    public function getNombreCompletoAttribute()
+    {
+        return $this->nombre;
+    }
+
+    public function getFechaHoraFormateadaAttribute()
+    {
+        return $this->fecha_hora_completa ? 
+            Carbon::parse($this->fecha_hora_completa)->format('d/m/Y H:i') : null;
+    }
+
+    public function getEsClienteRegistradoAttribute()
+    {
+        return !is_null($this->usuarios_id);
+    }
 }
