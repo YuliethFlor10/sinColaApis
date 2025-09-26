@@ -2,175 +2,82 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Appointment;
-use App\Models\User;
 use Illuminate\Http\Request;
-use Carbon\Carbon;
+use App\Models\Appointment;
 
 class AppointmentController extends Controller
 {
-    // GET /appointments
-    public function index(Request $request)
+    // GET /api/appointments
+    public function index()
     {
-        $appointments = Appointment::with(['user', 'staff', 'business', 'status', 'service'])
-            ->filtrar($request->all())
-            ->orderBy('fecha_cita', 'asc')
-            ->orderBy('hora_cita', 'asc')
-            ->get();
-
-        return response()->json($appointments, 200);
+        return response()->json(Appointment::all());
     }
 
-    // GET /appointments/{id}
-    public function show($id)
-    {
-        $appointment = Appointment::with(['user', 'staff', 'business', 'status', 'service'])->find($id);
-
-        if (!$appointment) {
-            return response()->json(['message' => 'Cita no encontrada'], 404);
-        }
-
-        return response()->json($appointment, 200);
-    }
-
-    // POST /appointments
+    // POST /api/appointments
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'tipo_documento' => 'required|string|in:CC,TI,CE,PP,NIT',
-            'numero_documento' => 'required|string|max:50',
-            'nombre' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
-            'fecha_nacimiento' => 'required|date|before:today',
-            'numero_telefono' => 'required|string|max:20',
-
-            'tipo_cita' => 'required|string|max:100',
-            'personal_servicio' => 'required|string|max:255',
-            'fecha_cita' => 'required|date|after_or_equal:today',
-            'hora_cita' => 'required|date_format:H:i',
-
-            'usuarios_id' => 'nullable|exists:users,id',
-            'atendido_por_id' => 'nullable|exists:users,id',
-            'negocios_id' => 'required|exists:businesses,id',
-            'servicios_id' => 'nullable|exists:services,id',
-            'estados_id' => 'nullable|exists:statuses,id',
-
-            'nota' => 'nullable|string|max:1000',
-            'tiempo_estimado' => 'nullable|integer|min:15|max:480',
-            'descripcion_cancel' => 'nullable|string|max:500',
-        ]);
-
-        // Si no trae estado, poner por defecto "Pendiente"
-        if (!isset($validated['estados_id'])) {
-            $validated['estados_id'] = 1;
-        }
-
-        // Calcular fecha_fin
-        if (isset($validated['tiempo_estimado'])) {
-            $fechaHora = Carbon::parse($validated['fecha_cita'] . ' ' . $validated['hora_cita']);
-            $validated['fecha_fin'] = $fechaHora->addMinutes($validated['tiempo_estimado']);
-        }
-
-        $appointment = Appointment::create($validated);
-
-        $appointment = Appointment::with(['user', 'staff', 'business', 'status', 'service'])
-            ->find($appointment->id);
-
-        return response()->json([
-            'message' => 'Cita creada exitosamente',
-            'data' => $appointment
-        ], 201);
+        $data = $this->mapFromAngular($request);
+        $appointment = Appointment::create($data);
+        return response()->json($appointment, 201);
     }
 
-    // PUT /appointments/{id}
+    // GET /api/appointments/{id}
+    public function show($id)
+    {
+        $appointment = Appointment::findOrFail($id);
+        return response()->json($appointment);
+    }
+
+    // PUT/PATCH /api/appointments/{id}
     public function update(Request $request, $id)
     {
-        $appointment = Appointment::find($id);
-        if (!$appointment) {
-            return response()->json(['message' => 'Cita no encontrada'], 404);
-        }
-
-        $validated = $request->validate([
-            'tipo_documento' => 'sometimes|required|string|in:CC,TI,CE,PP,NIT',
-            'numero_documento' => 'sometimes|required|string|max:50',
-            'nombre' => 'sometimes|required|string|max:255',
-            'email' => 'sometimes|required|email|max:255',
-            'fecha_nacimiento' => 'sometimes|required|date|before:today',
-            'numero_telefono' => 'sometimes|required|string|max:20',
-
-            'tipo_cita' => 'sometimes|required|string|max:100',
-            'personal_servicio' => 'sometimes|required|string|max:255',
-            'fecha_cita' => 'sometimes|required|date|after_or_equal:today',
-            'hora_cita' => 'sometimes|required|date_format:H:i',
-
-            'usuarios_id' => 'nullable|exists:users,id',
-            'atendido_por_id' => 'nullable|exists:users,id',
-            'negocios_id' => 'sometimes|required|exists:businesses,id',
-            'servicios_id' => 'nullable|exists:services,id',
-            'estados_id' => 'nullable|exists:statuses,id',
-
-            'nota' => 'nullable|string|max:1000',
-            'tiempo_estimado' => 'nullable|integer|min:15|max:480',
-            'descripcion_cancel' => 'nullable|string|max:500',
-        ]);
-
-        // Recalcular fecha_fin si cambió
-        if (isset($validated['fecha_cita']) || isset($validated['hora_cita']) || isset($validated['tiempo_estimado'])) {
-            $fechaCita = $validated['fecha_cita'] ?? $appointment->fecha_cita;
-            $horaCita = $validated['hora_cita'] ?? $appointment->hora_cita;
-            $tiempoEstimado = $validated['tiempo_estimado'] ?? $appointment->tiempo_estimado;
-
-            if ($tiempoEstimado) {
-                $fechaHora = Carbon::parse($fechaCita . ' ' . $horaCita);
-                $validated['fecha_fin'] = $fechaHora->addMinutes($tiempoEstimado);
-            }
-        }
-
-        $appointment->update($validated);
-
-        $appointment = Appointment::with(['user', 'staff', 'business', 'status', 'service'])
-            ->find($appointment->id);
-
-        return response()->json([
-            'message' => 'Cita actualizada exitosamente',
-            'data' => $appointment
-        ], 200);
+        $appointment = Appointment::findOrFail($id);
+        $data = $this->mapFromAngular($request);
+        $appointment->update($data);
+        return response()->json($appointment);
     }
 
-    // DELETE /appointments/{id}
+    // DELETE /api/appointments/{id}
     public function destroy($id)
     {
-        $appointment = Appointment::find($id);
-        if (!$appointment) {
-            return response()->json(['message' => 'Cita no encontrada'], 404);
-        }
-
+        $appointment = Appointment::findOrFail($id);
         $appointment->delete();
-
-        return response()->json(['message' => 'Cita eliminada correctamente'], 200);
+        return response()->json(null, 204);
     }
 
-    // PATCH /appointments/{id}/status
-    public function updateStatus(Request $request, $id)
+    /**
+     * Mapear datos desde Angular al formato de Laravel
+     */
+    private function mapFromAngular(Request $request)
     {
-        $appointment = Appointment::find($id);
-        if (!$appointment) {
-            return response()->json(['message' => 'Cita no encontrada'], 404);
-        }
+        $day = $request->input('day');
+        $monthName = strtoupper($request->input('monthName', ''));
+        $year = date('Y');
 
-        $validated = $request->validate([
-            'estados_id' => 'required|exists:statuses,id',
-            'descripcion_cancel' => 'nullable|string|max:500'
-        ]);
+        // Convertir monthName → número
+        $months = [
+            'ENERO' => '01', 'FEBRERO' => '02', 'MARZO' => '03', 'ABRIL' => '04',
+            'MAYO' => '05', 'JUNIO' => '06', 'JULIO' => '07', 'AGOSTO' => '08',
+            'SEPTIEMBRE' => '09', 'OCTUBRE' => '10', 'NOVIEMBRE' => '11', 'DICIEMBRE' => '12'
+        ];
+        $month = $months[$monthName] ?? '01';
+        $fechaCita = $day ? "$year-$month-" . str_pad($day, 2, '0', STR_PAD_LEFT) : null;
 
-        $appointment->update($validated);
+        return [
+            'nombre'            => $request->input('clientName'),
+            'tipo_cita'         => $request->input('serviceName'),
+            'fecha_cita'        => $fechaCita,
+            'hora_cita'         => $request->input('time'),
+            'nota'              => $request->input('nota'),
+            'email'             => $request->input('clientEmail'),
+            'personal_servicio' => $request->input('staffName', 'Por asignar'),
 
-        $appointment = Appointment::with(['user', 'staff', 'business', 'status', 'service'])
-            ->find($appointment->id);
-
-        return response()->json([
-            'message' => 'Estado de la cita actualizado exitosamente',
-            'data' => $appointment
-        ], 200);
+            // Campos adicionales requeridos
+            'tipo_documento'    => $request->input('tipo_documento', 'CC'),
+            'numero_documento'  => $request->input('numero_documento', '0000000000'),
+            'fecha_nacimiento'  => $request->input('fecha_nacimiento', '2000-01-01'),
+            'numero_telefono'   => $request->input('numero_telefono', '3000000000'),
+            'negocios_id'       => $request->input('negocios_id', 1),
+        ];
     }
 }
