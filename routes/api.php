@@ -13,8 +13,19 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\CustomizationController;
 use Illuminate\Support\Facades\Route;
 
-// Ruta pública para login
+// Rutas públicas de autenticación
 Route::post('login', [AuthController::class, 'login'])->name('login');
+Route::post('register', [AuthController::class, 'register'])->name('register');
+
+// Ruta temporal para debug
+Route::post('debug-register', function(\Illuminate\Http\Request $request) {
+    return response()->json([
+        'received_data' => $request->all(),
+        'headers' => $request->headers->all(),
+        'method' => $request->method(),
+        'content_type' => $request->header('Content-Type')
+    ]);
+});
 
 // Rutas públicas sin autenticación (si quieres que estén públicas)
 Route::apiResource('statuses', StatusController::class);
@@ -30,7 +41,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::apiResource('agendas', AgendaController::class);
     Route::apiResource('customizations', CustomizationController::class);
 
-    Route::get('businesses/{businessId}/customization', [CustomizationController::class, 'showByBusiness'])
+    // Ruta específica para obtener personalización por business ID (requerida por Angular)
+    Route::get('customizations/business/{businessId}', [CustomizationController::class, 'showByBusiness'])
         ->name('customizations.showByBusiness');
 });
 
