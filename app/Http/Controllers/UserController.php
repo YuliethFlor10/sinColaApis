@@ -122,16 +122,27 @@ class UserController extends Controller
     }
 
     // DELETE /users/{id}
-    public function destroy($id)
-    {
-        $user = User::find($id);
+   // DELETE /users/{id}
+public function destroy($id)
+{
+    $user = User::find($id);
 
-        if (!$user) {
-            return response()->json(['message' => 'Usuario no encontrado'], 404);
-        }
-
-        $user->delete();
-
-        return response()->json(['message' => 'Usuario eliminado correctamente']);
+    if (!$user) {
+        return response()->json(['message' => 'Usuario no encontrado'], 404);
     }
+
+    // ✅ NUEVO: Evitar que el usuario elimine su propia cuenta
+    if (auth()->check() && $user->id === auth()->id()) {
+        return response()->json([
+            'message' => 'No puedes eliminar tu propio usuario mientras estás autenticado'
+        ], 403);
+    }
+
+    // ✅ NUEVO: Revocar todos los tokens del usuario antes de eliminarlo
+    $user->tokens()->delete();
+
+    $user->delete();
+
+    return response()->json(['message' => 'Usuario eliminado correctamente']);
+}
 }

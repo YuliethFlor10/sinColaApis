@@ -13,20 +13,16 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\CustomizationController;
 use Illuminate\Support\Facades\Route;
 
-// Ruta pública para login
+// Rutas públicas de autenticación
 Route::post('login', [AuthController::class, 'login'])->name('login');
+Route::post('register', [AuthController::class, 'register'])->name('register'); // NUEVA LÍNEA
 
 // RUTAS PÚBLICAS PARA CONFIRMAR CITA (sin autenticación)
 Route::prefix('citas')->group(function () {
-    // Obtener datos de la cita con token de confirmación
     Route::get('{id}/confirmar', [AppointmentController::class, 'getConfirmationData'])
         ->name('appointments.confirmation');
-
-    // Actualizar estado de la cita (confirmar/cancelar)
     Route::put('{id}/estado', [AppointmentController::class, 'updateStatus'])
         ->name('appointments.updateStatus');
-
-    // SOLO PARA DESARROLLO - Generar token de prueba
     Route::post('{id}/generar-token', [AppointmentController::class, 'generarTokenPrueba'])
         ->name('appointments.generateTestToken');
 });
