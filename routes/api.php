@@ -11,13 +11,16 @@ use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\StatusController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\CustomizationController;
+use App\Http\Controllers\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 
-// Rutas públicas de autenticación
-Route::post('login', [AuthController::class, 'login'])->name('login');
-Route::post('register', [AuthController::class, 'register'])->name('register'); // NUEVA LÍNEA
+// ==================== RUTAS PÚBLICAS ====================
 
-// RUTAS PÚBLICAS PARA CONFIRMAR CITA (sin autenticación)
+// Autenticación
+Route::post('login', [AuthController::class, 'login'])->name('login');
+Route::post('register', [AuthController::class, 'register'])->name('register');
+
+// Confirmación de citas (sin autenticación)
 Route::prefix('citas')->group(function () {
     Route::get('{id}/confirmar', [AppointmentController::class, 'getConfirmationData'])
         ->name('appointments.confirmation');
@@ -27,13 +30,16 @@ Route::prefix('citas')->group(function () {
         ->name('appointments.generateTestToken');
 });
 
-// Rutas públicas sin autenticación
+// Recursos públicos
 Route::apiResource('statuses', StatusController::class);
 Route::apiResource('plans', PlanController::class);
 Route::apiResource('roles', RoleController::class);
 
-// Rutas protegidas con autenticación Sanctum
+// ==================== RUTAS PROTEGIDAS ====================
+
 Route::middleware(['auth:sanctum'])->group(function () {
+
+    // Recursos CRUD
     Route::apiResource('businesses', BusinessController::class);
     Route::apiResource('users', UserController::class);
     Route::apiResource('categories', CategoryController::class);
@@ -42,6 +48,29 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::apiResource('appointments', AppointmentController::class);
     Route::apiResource('customizations', CustomizationController::class);
 
+    // NUEVO: Rutas de Suscripciones
+    Route::apiResource('subscriptions', SubscriptionController::class);
+
+    // NUEVO: Rutas específicas de suscripciones
+    Route::prefix('users/{usuarioId}')->group(function () {
+        // Obtener suscripción activa del usuario
+        Route::get('suscripcion-activa', [SubscriptionController::class, 'getSuscripcionActiva'])
+            ->name('subscriptions.activa');
+
+        // Obtener historial de suscripciones
+        Route::get('historial-suscripciones', [SubscriptionController::class, 'getHistorialSuscripciones'])
+            ->name('subscriptions.historial');
+
+        // Cambiar de plan (crear nueva suscripción)
+        Route::post('cambiar-plan', [SubscriptionController::class, 'cambiarPlan'])
+            ->name('subscriptions.cambiar');
+    });
+
+    // Renovar suscripción
+    Route::put('subscriptions/{id}/renovar', [SubscriptionController::class, 'renovar'])
+        ->name('subscriptions.renovar');
+
+    // Customizations por negocio
     Route::get('businesses/{businessId}/customization', [CustomizationController::class, 'showByBusiness'])
         ->name('customizations.showByBusiness');
 });
