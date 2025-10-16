@@ -9,12 +9,8 @@ use Illuminate\Validation\Rule;
 class UserController extends Controller
 {
     // GET /users
-    //public function index()
-     public function index(Request $request)
+    public function index(Request $request)
     {
-        // Cargar relaciones estado, rol, tipoIdentificacion, negocio
-       /* $users = User::with(['status', 'role', 'identificationType', 'business'])->get();
-        return response()->json($users);*/
         $filters = $request->only([
             'del_negocio',
             'con_rol',
@@ -27,7 +23,7 @@ class UserController extends Controller
             'buscar_por_nombre',
         ]);
 
-         // Filtro combinado: entre_edades
+        // Filtro combinado: entre_edades
         if ($request->filled(['edad_min', 'edad_max'])) {
             $filters['entre_edades'] = [$request->edad_min, $request->edad_max];
         }
@@ -58,13 +54,18 @@ class UserController extends Controller
     // POST /users
     public function store(Request $request)
     {
+        // ✅ Determinar si es Cliente antes de validar
+        $rolId = $request->input('roles_id');
+        $esCliente = $this->esRolCliente($rolId);
+
         $validated = $request->validate([
             'nombres' => 'required|string|max:100',
             'apellidos' => 'required|string|max:100',
             'email' => 'required|email|unique:users,email',
             'nacimiento' => 'nullable|date',
             'genero' => 'nullable|string|max:1',
-            'clave' => 'required|string|min:6',
+            // ✅ Contraseña OPCIONAL para Clientes, REQUERIDA para otros
+            'clave' => $esCliente ? 'nullable|string|min:6' : 'required|string|min:6',
             'tipo_identificacion_id' => 'required|integer|exists:categories,id',
             'identificacion' => 'required|string|max:30',
             'celular' => 'nullable|string|max:20',
@@ -76,8 +77,14 @@ class UserController extends Controller
             'negocios_id' => 'nullable|integer|exists:businesses,id',
         ]);
 
-        // Encriptar la clave
-        $validated['clave'] = \Illuminate\Support\Facades\Hash::make($validated['clave']);
+        // ✅ Manejo de contraseña según tipo de usuario
+        if (!empty($validated['clave'])) {
+            // Si envió contraseña, encriptarla
+            $validated['clave'] = \Illuminate\Support\Facades\Hash::make($validated['clave']);
+        } else {
+            // Si NO envió contraseña, dejar como NULL (solo para Clientes)
+            $validated['clave'] = null;
+        }
 
         $user = User::create($validated);
 
@@ -122,27 +129,45 @@ class UserController extends Controller
     }
 
     // DELETE /users/{id}
-   // DELETE /users/{id}
-public function destroy($id)
-{
-    $user = User::find($id);
+    public function destroy($id)
+    {
+        $user = User::find($id);
 
-    if (!$user) {
-        return response()->json(['message' => 'Usuario no encontrado'], 404);
+        if (!$user) {
+            return response()->json(['message' => 'Usuario no encontrado'], 404);
+        }
+
+        // Evitar que el usuario elimine su propia cuenta
+        if (auth()->check() && $user->id === auth()->id()) {
+            return response()->json([
+                'message' => 'No puedes eliminar tu propio usuario mientras estás autenticado'
+            ], 403);
+        }
+
+        // Revocar todos los tokens del usuario antes de eliminarlo
+        $user->tokens()->delete();
+
+        $user->delete();
+
+        return response()->json(['message' => 'Usuario eliminado correctamente']);
     }
 
-    // ✅ NUEVO: Evitar que el usuario elimine su propia cuenta
-    if (auth()->check() && $user->id === auth()->id()) {
-        return response()->json([
-            'message' => 'No puedes eliminar tu propio usuario mientras estás autenticado'
-        ], 403);
+    /**
+     * ✅ Método auxiliar para verificar si un rol es "Cliente"
+     */
+    private function esRolCliente($rolId)
+    {
+        if (!$rolId) {
+            return false;
+        }
+
+        $rol = \App\Models\Role::find($rolId);
+
+        if (!$rol) {
+            return false;
+        }
+
+        // Verificar si el nombre del rol es "Cliente" (case-insensitive)
+        return strtolower($rol->nombre) === 'cliente';
     }
-
-    // ✅ NUEVO: Revocar todos los tokens del usuario antes de eliminarlo
-    $user->tokens()->delete();
-
-    $user->delete();
-
-    return response()->json(['message' => 'Usuario eliminado correctamente']);
-}
 }
