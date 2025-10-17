@@ -24,12 +24,31 @@ class AuthController extends Controller
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
+        // ✅ IMPORTANTE: Devolver datos completos del usuario
         return response()->json([
             'access_token' => $token,
             'token_type' => 'Bearer',
-            'user' => $user,
+            'user' => [
+                'id' => $user->id,
+                'nombres' => $user->nombres,
+                'apellidos' => $user->apellidos,
+                'email' => $user->email,
+                'celular' => $user->celular,
+                'telefono' => $user->telefono,
+                'direccion' => $user->direccion,
+                'identificacion' => $user->identificacion,
+                'tipo_identificacion_id' => $user->tipo_identificacion_id,
+                'estados_id' => $user->estados_id,
+                'roles_id' => $user->roles_id,
+                'negocios_id' => $user->negocios_id,
+                // ✅ Nombre completo para mostrar
+                'nombre_completo' => trim($user->nombres . ' ' . $user->apellidos),
+            ]
         ]);
     }
+
+    // ... resto de tus métodos register y logout sin cambios
+
 
     public function register(Request $request)
     {
