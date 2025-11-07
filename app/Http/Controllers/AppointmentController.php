@@ -4,455 +4,376 @@ namespace App\Http\Controllers;
 
 use App\Models\Appointment;
 use App\Models\Status;
+use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Carbon\Carbon;
 
 class AppointmentController extends Controller
 {
-    // GET /appointments
-    public function index(Request $request)
-    {
-        $appointments = Appointment::with(['user', 'business', 'status', 'service'])
-            ->filtrar($request->all())
-            ->get();
-
-        if ($appointments->isEmpty()) {
-            return response()->json(['message' => 'No se encuentra ninguna cita con los filtros aplicados.'], 404);
-        }
-
-        return response()->json($appointments);
-    }
-
-    // GET /appointments/{id}
-    public function show($id)
-    {
-        $appointment = Appointment::with(['user', 'business', 'status', 'service'])->find($id);
-
-        if (!$appointment) {
-            return response()->json(['message' => 'Cita no encontrada'], 404);
-        }
-
-        return response()->json($appointment);
-    }
-
-    // POST /appointments
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'usuarios_id' => 'required|exists:users,id',
-            'negocios_id' => 'required|exists:businesses,id',
-            'nota' => 'nullable|string',
-            'fecha' => 'required|date',
-            'estados_id' => 'required|exists:statuses,id',
-            'servicios_id' => 'required|exists:services,id',
-            'fecha_fin' => 'required|date|after_or_equal:fecha',
-            'tiempo_estimado' => 'nullable|integer',
-            'descripcion_cancel' => 'nullable|string',
-        ]);
-
-        $appointment = Appointment::create($validated);
-
-        // Recargar con relaciones
-        $appointment = Appointment::with(['user', 'business', 'status', 'service'])->find($appointment->id);
-
-        return response()->json($appointment, 201);
-    }
-
-    // PUT /appointments/{id}
-    public function update(Request $request, $id)
-    {
-        $appointment = Appointment::find($id);
-
-        if (!$appointment) {
-            return response()->json(['message' => 'Cita no encontrada'], 404);
-        }
-
-        $validated = $request->validate([
-            'usuarios_id' => 'sometimes|required|exists:users,id',
-            'negocios_id' => 'sometimes|required|exists:businesses,id',
-            'nota' => 'nullable|string',
-            'fecha' => 'sometimes|required|date',
-            'estados_id' => 'sometimes|required|exists:statuses,id',
-            'servicios_id' => 'sometimes|required|exists:services,id',
-            'fecha_fin' => 'sometimes|required|date|after_or_equal:fecha',
-            'tiempo_estimado' => 'nullable|integer',
-            'descripcion_cancel' => 'nullable|string',
-        ]);
-
-        $appointment->update($validated);
-
-        // Recargar con relaciones
-        $appointment = Appointment::with(['user', 'business', 'status', 'service'])->find($appointment->id);
-
-        return response()->json($appointment);
-    }
-
-    // DELETE /appointments/{id}
-    public function destroy($id)
-    {
-        $appointment = Appointment::find($id);
-
-        if (!$appointment) {
-            return response()->json(['message' => 'Cita no encontrada'], 404);
-        }
-
-        $appointment->delete();
-
-        return response()->json(['message' => 'Cita eliminada correctamente']);
-    }
-
-    // ============================================================================
-    // 🔥 NUEVOS MÉTODOS PARA CONFIRMAR-CITA (CLIENTE FINAL)
-    // ============================================================================
+    // ============================================
+    // CRUD BÁSICO
+    // ============================================
 
     /**
-     * GET /api/citas/{id}/confirmar?token={token}
-     * Obtener datos de la cita para vista de confirmación del cliente
+     * GET /api/appointments
      */
-    public function getConfirmationData(Request $request, $id)
+    public function index(Request $request)
     {
         try {
-            // Validar que se envió el token
-            $token = $request->query('token');
-            if (!$token) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Token de confirmación requerido'
-                ], 400);
-            }
+            $appointments = Appointment::with(['user', 'business', 'status', 'service'])
+                ->filtrar($request->all())
+                ->orderBy('fecha', 'desc')
+                ->get();
 
-            // Buscar la cita con todas sus relaciones
-            $appointment = Appointment::with([
-                'user' => function ($query) {
-                    $query->select('id', 'nombres', 'apellidos', 'email', 'celular', 'telefono');
-                },
-                'business' => function ($query) {
-                    $query->select('id', 'nombre', 'direccion', 'telefono');
-                },
-                'service' => function ($query) {
-                    $query->select('id', 'nombre', 'tiempo_estimado', 'precio', 'recomendaciones');
-                },
-                'status' => function ($query) {
-                    $query->select('id', 'nombre');
-                }
-            ])->find($id);
-
-            if (!$appointment) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cita no encontrada'
-                ], 404);
-            }
-
-            // 🔥 VALIDAR TOKEN (Simple - puedes mejorarlo con hash más seguro)
-            $expectedToken = $this->generateConfirmationToken($appointment);
-            if ($token !== $expectedToken) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Token inválido o expirado'
-                ], 401);
-            }
-
-            // Formatear datos para el cliente
-            $data = [
-                'id' => $appointment->id,
-                'cliente_nombre' => strtoupper($appointment->user->nombres . ' ' . $appointment->user->apellidos),
-                'cliente_email' => $appointment->user->email,
-                'cliente_telefono' => $appointment->user->celular ?? $appointment->user->telefono,
-
-                'fecha' => Carbon::parse($appointment->fecha)->locale('es')->isoFormat('dddd D [de] MMMM YYYY'),
-                'hora' => Carbon::parse($appointment->fecha)->format('h:i A'),
-
-                'servicio' => $appointment->service->nombre,
-                'duracion' => $this->formatDuration($appointment->service->tiempo_estimado),
-                'precio' => number_format($appointment->service->precio, 0, ',', '.'),
-                'recomendaciones' => $appointment->service->recomendaciones,
-
-                'negocio_nombre' => $appointment->business->nombre,
-                'direccion' => $appointment->business->direccion,
-                'telefono' => $appointment->business->telefono,
-
-                'estado' => $appointment->status->nombre,
-                'observaciones' => $appointment->nota,
-
-                // Datos adicionales útiles
-                'fecha_creacion' => Carbon::parse($appointment->creado_en)->format('Y-m-d H:i:s'),
-                'puede_cancelar' => $this->canBeCancelled($appointment),
-                'puede_confirmar' => $this->canBeConfirmed($appointment)
-            ];
-
-            return response()->json([
-                'success' => true,
-                'data' => $data,
-                'message' => 'Datos de cita obtenidos exitosamente'
-            ]);
+            return response()->json($appointments, 200);
         } catch (\Exception $e) {
             return response()->json([
-                'success' => false,
-                'message' => 'Error al obtener los datos de la cita',
+                'message' => 'Error al obtener citas',
                 'error' => $e->getMessage()
             ], 500);
         }
     }
 
     /**
-     * PUT /api/citas/{id}/estado
-     * Actualizar estado de la cita (confirmar o cancelar)
+     * GET /api/appointments/{id}
      */
-    public function updateStatus(Request $request, $id)
+    public function show($id)
     {
         try {
-            // Validar request
-            $validated = $request->validate([
-                'accion' => 'required|in:confirmar,cancelar',
-                'token' => 'required|string',
-                'descripcion_cancel' => 'nullable|string|max:500'
-            ]);
-
-            // Buscar la cita
-            $appointment = Appointment::with(['user', 'business', 'service', 'status'])->find($id);
+            $appointment = Appointment::with(['user', 'business', 'status', 'service'])
+                ->find($id);
 
             if (!$appointment) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cita no encontrada'
-                ], 404);
+                return response()->json(['message' => 'Cita no encontrada'], 404);
             }
 
-            // Validar token
-            $expectedToken = $this->generateConfirmationToken($appointment);
-            if ($validated['token'] !== $expectedToken) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Token inválido'
-                ], 401);
+            return response()->json($appointment, 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error al obtener la cita',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * POST /api/appointments
+     * 🔥 CREAR - Guarda datos del cliente EN la cita
+     */
+    public function store(Request $request)
+    {
+        try {
+            // Validación
+            $validated = $request->validate([
+                'nombre' => 'required|string|max:255',
+                'email' => 'required|email',
+                'tipo_documento' => 'required|string|max:10',
+                'numero_documento' => 'required|string|max:50',
+                'fecha_nacimiento' => 'required|date',
+                'numero_telefono' => 'required|string|max:20',
+                'tipo_cita' => 'required|string',
+                'personal_servicio' => 'required|string',
+                'fecha_cita' => 'required|date',
+                'hora_cita' => 'required|string',
+                'nota' => 'nullable|string',
+                'negocios_id' => 'required|exists:businesses,id',
+                'servicios_id' => 'required|exists:services,id',
+                'estados_id' => 'nullable|exists:statuses,id',
+                'tiempo_estimado' => 'nullable|integer'
+            ]);
+
+            // 🔥 Buscar o crear usuario (solo para la relación)
+            $user = User::where('email', $validated['email'])->first();
+            
+            if (!$user) {
+                $nombrePartes = explode(' ', $validated['nombre']);
+                $user = User::create([
+                    'nombres' => $nombrePartes[0] ?? 'Cliente',
+                    'apellidos' => implode(' ', array_slice($nombrePartes, 1)) ?: 'Nuevo',
+                    'email' => $validated['email'],
+                    'celular' => $validated['numero_telefono'],
+                    'tipo_documento' => $validated['tipo_documento'],
+                    'numero_documento' => $validated['numero_documento'],
+                    'fecha_nacimiento' => $validated['fecha_nacimiento'],
+                    'password' => bcrypt('temp_' . rand(100000, 999999)),
+                    'roles_id' => 3 // Cliente
+                ]);
             }
 
-            // Procesar según la acción
-            if ($validated['accion'] === 'confirmar') {
-                $result = $this->confirmAppointment($appointment);
-            } else {
-                $result = $this->cancelAppointment($appointment, $validated['descripcion_cancel'] ?? null);
-            }
+            // Construir fecha completa
+            $fechaCompleta = Carbon::parse($validated['fecha_cita'] . ' ' . $validated['hora_cita']);
+            $tiempoEstimado = $validated['tiempo_estimado'] ?? 60;
+            $fechaFin = $fechaCompleta->copy()->addMinutes($tiempoEstimado);
 
-            if (!$result['success']) {
+            // Verificar conflictos de horario
+            if (Appointment::hasConflict($fechaCompleta, $fechaFin, $user->id)) {
                 return response()->json([
-                    'success' => false,
-                    'message' => $result['message']
+                    'message' => 'Ya existe una cita en ese horario para este cliente'
                 ], 422);
             }
 
-            // Recargar cita con datos actualizados
-            $appointment->refresh();
-            $appointment->load(['user', 'business', 'service', 'status']);
-
-            return response()->json([
-                'success' => true,
-                'data' => $appointment,
-                'message' => $result['message']
+            // 🔥 CREAR LA CITA - Guardar datos del cliente EN la cita
+            $appointment = Appointment::create([
+                'usuarios_id' => $user->id,
+                'negocios_id' => $validated['negocios_id'],
+                'servicios_id' => $validated['servicios_id'],
+                'estados_id' => $validated['estados_id'] ?? 1,
+                'fecha' => $fechaCompleta,
+                'fecha_fin' => $fechaFin,
+                'tiempo_estimado' => $tiempoEstimado,
+                'nota' => $validated['nota'] ?? null,
+                
+                // 🔥 DATOS DEL CLIENTE EN LA CITA
+                'cliente_nombre' => $validated['nombre'],
+                'cliente_email' => $validated['email'],
+                'cliente_tipo_doc' => $validated['tipo_documento'],
+                'cliente_num_doc' => $validated['numero_documento'],
+                'cliente_fecha_nac' => $validated['fecha_nacimiento'],
+                'cliente_telefono' => $validated['numero_telefono'],
+                'tipo_servicio' => $validated['tipo_cita'],
+                'personal_asignado' => $validated['personal_servicio']
             ]);
+
+            $appointment->load(['user', 'business', 'status', 'service']);
+
+            return response()->json($appointment, 201);
+
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
-                'success' => false,
-                'message' => 'Datos de validación incorrectos',
+                'message' => 'Error de validación',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
             return response()->json([
-                'success' => false,
-                'message' => 'Error al actualizar el estado de la cita',
+                'message' => 'Error al crear la cita',
                 'error' => $e->getMessage()
             ], 500);
         }
     }
 
-    // ============================================================================
-    // MÉTODOS AUXILIARES PRIVADOS
-    // ============================================================================
-
     /**
-     * Generar token de confirmación para la cita
-     * 🔥 IMPORTANTE: En producción usa un método más seguro (JWT, hash con secret, etc.)
+     * PUT /api/appointments/{id}
+     * 🔥 ACTUALIZAR - Solo modifica LA CITA, no el usuario
      */
-    public function generateConfirmationToken(Appointment $appointment): string
-    {
-        // Token simple basado en ID y fecha
-        // En producción, usa: hash_hmac('sha256', $appointment->id . $appointment->fecha, env('APP_KEY'))
-        return base64_encode($appointment->id . '|' . $appointment->fecha . '|' . config('app.key'));
-    }
-
-    /**
-     * Verificar si la cita puede ser cancelada
-     */
-    private function canBeCancelled(Appointment $appointment): bool
-    {
-        $estadoActual = strtolower($appointment->status->nombre);
-
-        // No se puede cancelar si ya está cancelada o completada
-        if (in_array($estadoActual, ['cancelada', 'completada', 'no show'])) {
-            return false;
-        }
-
-        // Verificar si la cita ya pasó
-        if (Carbon::parse($appointment->fecha)->isPast()) {
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * Verificar si la cita puede ser confirmada
-     */
-    private function canBeConfirmed(Appointment $appointment): bool
-    {
-        $estadoActual = strtolower($appointment->status->nombre);
-
-        // Solo se puede confirmar si está en estado Pendiente
-        if ($estadoActual === 'confirmada') {
-            return false; // Ya está confirmada
-        }
-
-        if (in_array($estadoActual, ['cancelada', 'completada', 'no show'])) {
-            return false;
-        }
-
-        // Verificar si la cita ya pasó
-        if (Carbon::parse($appointment->fecha)->isPast()) {
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * Confirmar una cita
-     */
-    private function confirmAppointment(Appointment $appointment): array
-    {
-        if (!$this->canBeConfirmed($appointment)) {
-            return [
-                'success' => false,
-                'message' => 'Esta cita no puede ser confirmada en su estado actual'
-            ];
-        }
-
-        // Buscar estado "Confirmada" (ID 4 según tu script SQL)
-        $confirmedStatus = Status::where('nombre', 'Confirmada')->first();
-
-        if (!$confirmedStatus) {
-            return [
-                'success' => false,
-                'message' => 'Error: Estado "Confirmada" no encontrado en el sistema'
-            ];
-        }
-
-        $appointment->update([
-            'estados_id' => $confirmedStatus->id
-        ]);
-
-        return [
-            'success' => true,
-            'message' => 'Cita confirmada exitosamente'
-        ];
-    }
-
-    /**
-     * Cancelar una cita
-     */
-    private function cancelAppointment(Appointment $appointment, ?string $motivo): array
-    {
-        if (!$this->canBeCancelled($appointment)) {
-            return [
-                'success' => false,
-                'message' => 'Esta cita no puede ser cancelada en su estado actual'
-            ];
-        }
-
-        // Buscar estado "Cancelada" (ID 5 según tu script SQL)
-        $cancelledStatus = Status::where('nombre', 'Cancelada')->first();
-
-        if (!$cancelledStatus) {
-            return [
-                'success' => false,
-                'message' => 'Error: Estado "Cancelada" no encontrado en el sistema'
-            ];
-        }
-
-        $appointment->update([
-            'estados_id' => $cancelledStatus->id,
-            'descripcion_cancel' => $motivo ?? 'Cancelada por el cliente'
-        ]);
-
-        return [
-            'success' => true,
-            'message' => 'Cita cancelada exitosamente'
-        ];
-    }
-
-    /**
-     * Formatear duración en minutos a texto legible
-     */
-    private function formatDuration(int $minutes): string
-    {
-        if ($minutes < 60) {
-            return $minutes . ' minutos';
-        }
-
-        $hours = floor($minutes / 60);
-        $remainingMinutes = $minutes % 60;
-
-        $result = $hours . ($hours === 1 ? ' hora' : ' horas');
-
-        if ($remainingMinutes > 0) {
-            $result .= ' y ' . $remainingMinutes . ' minutos';
-        }
-
-        return $result;
-    }
-
-    /**
-     * SOLO PARA DESARROLLO - Generar token de prueba
-     * POST /api/citas/{id}/generar-token
-     */
-    public function generarTokenPrueba($id)
+    public function update(Request $request, $id)
     {
         try {
-            $appointment = Appointment::with(['user', 'business', 'service', 'status'])->find($id);
+            $appointment = Appointment::find($id);
 
             if (!$appointment) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cita no encontrada'
-                ], 404);
+                return response()->json(['message' => 'Cita no encontrada'], 404);
             }
 
-            // Generar token usando el método privado existente
-            $token = $this->generateConfirmationToken($appointment);
-
-            // Construir URL de confirmación
-            // Construir URL de confirmación (hardcoded para desarrollo)
-            $url = "http://localhost:4200/cliente-final/confirmar-cita/{$id}?token={$token}";
-
-            return response()->json([
-                'success' => true,
-                'token' => $token,
-                'url' => $url,
-                'cita' => [
-                    'id' => $appointment->id,
-                    'cliente' => strtoupper($appointment->user->nombres . ' ' . $appointment->user->apellidos),
-                    'email' => $appointment->user->email,
-                    'servicio' => $appointment->service->nombre,
-                    'fecha' => Carbon::parse($appointment->fecha)->locale('es')->isoFormat('dddd D [de] MMMM YYYY'),
-                    'hora' => Carbon::parse($appointment->fecha)->format('h:i A'),
-                    'estado' => $appointment->status->nombre
-                ]
+            // Validación
+            $validated = $request->validate([
+                'nombre' => 'sometimes|string|max:255',
+                'email' => 'sometimes|email',
+                'tipo_documento' => 'sometimes|string|max:10',
+                'numero_documento' => 'sometimes|string|max:50',
+                'fecha_nacimiento' => 'sometimes|date',
+                'numero_telefono' => 'sometimes|string|max:20',
+                'tipo_cita' => 'sometimes|string',
+                'personal_servicio' => 'sometimes|string',
+                'fecha_cita' => 'sometimes|date',
+                'hora_cita' => 'sometimes|string',
+                'nota' => 'nullable|string',
+                'negocios_id' => 'sometimes|exists:businesses,id',
+                'servicios_id' => 'sometimes|exists:services,id',
+                'estados_id' => 'sometimes|exists:statuses,id',
+                'tiempo_estimado' => 'nullable|integer'
             ]);
+
+            // 🔥 Si cambiaron fecha/hora, recalcular fecha_fin
+            if (isset($validated['fecha_cita']) || isset($validated['hora_cita'])) {
+                $fechaCita = $validated['fecha_cita'] ?? $appointment->fecha->format('Y-m-d');
+                $horaCita = $validated['hora_cita'] ?? $appointment->fecha->format('H:i');
+                
+                $fechaCompleta = Carbon::parse($fechaCita . ' ' . $horaCita);
+                $tiempoEstimado = $validated['tiempo_estimado'] ?? $appointment->tiempo_estimado;
+                $fechaFin = $fechaCompleta->copy()->addMinutes($tiempoEstimado);
+
+                // Verificar conflictos (excluyendo esta cita)
+                if (Appointment::hasConflict($fechaCompleta, $fechaFin, $appointment->usuarios_id, $id)) {
+                    return response()->json([
+                        'message' => 'Ya existe una cita en ese horario para este cliente'
+                    ], 422);
+                }
+
+                $validated['fecha'] = $fechaCompleta;
+                $validated['fecha_fin'] = $fechaFin;
+            }
+
+            // 🔥 MAPEAR CAMPOS DEL FRONTEND AL BACKEND
+            $dataToUpdate = [];
+            
+            // Campos de negocio
+            if (isset($validated['negocios_id'])) $dataToUpdate['negocios_id'] = $validated['negocios_id'];
+            if (isset($validated['servicios_id'])) $dataToUpdate['servicios_id'] = $validated['servicios_id'];
+            if (isset($validated['estados_id'])) $dataToUpdate['estados_id'] = $validated['estados_id'];
+            if (isset($validated['nota'])) $dataToUpdate['nota'] = $validated['nota'];
+            if (isset($validated['tiempo_estimado'])) $dataToUpdate['tiempo_estimado'] = $validated['tiempo_estimado'];
+            if (isset($validated['fecha'])) $dataToUpdate['fecha'] = $validated['fecha'];
+            if (isset($validated['fecha_fin'])) $dataToUpdate['fecha_fin'] = $validated['fecha_fin'];
+            
+            // 🔥 Campos del cliente (guardar EN la cita)
+            if (isset($validated['nombre'])) $dataToUpdate['cliente_nombre'] = $validated['nombre'];
+            if (isset($validated['email'])) $dataToUpdate['cliente_email'] = $validated['email'];
+            if (isset($validated['tipo_documento'])) $dataToUpdate['cliente_tipo_doc'] = $validated['tipo_documento'];
+            if (isset($validated['numero_documento'])) $dataToUpdate['cliente_num_doc'] = $validated['numero_documento'];
+            if (isset($validated['fecha_nacimiento'])) $dataToUpdate['cliente_fecha_nac'] = $validated['fecha_nacimiento'];
+            if (isset($validated['numero_telefono'])) $dataToUpdate['cliente_telefono'] = $validated['numero_telefono'];
+            if (isset($validated['tipo_cita'])) $dataToUpdate['tipo_servicio'] = $validated['tipo_cita'];
+            if (isset($validated['personal_servicio'])) $dataToUpdate['personal_asignado'] = $validated['personal_servicio'];
+
+            // 🔥 ACTUALIZAR SOLO ESTA CITA
+            $appointment->update($dataToUpdate);
+            $appointment->load(['user', 'business', 'status', 'service']);
+
+            return response()->json($appointment, 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'Error de validación',
+                'errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
             return response()->json([
-                'success' => false,
-                'message' => 'Error al generar token',
+                'message' => 'Error al actualizar la cita',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * PATCH /api/appointments/{id}
+     */
+    public function patch(Request $request, $id)
+    {
+        try {
+            $appointment = Appointment::find($id);
+
+            if (!$appointment) {
+                return response()->json(['message' => 'Cita no encontrada'], 404);
+            }
+
+            $validated = $request->validate([
+                'estados_id' => 'sometimes|exists:statuses,id',
+                'nota' => 'nullable|string',
+                'descripcion_cancel' => 'nullable|string'
+            ]);
+
+            $appointment->update($validated);
+            $appointment->load(['user', 'business', 'status', 'service']);
+
+            return response()->json($appointment, 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error al actualizar',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * DELETE /api/appointments/{id}
+     */
+    public function destroy($id)
+    {
+        try {
+            $appointment = Appointment::find($id);
+
+            if (!$appointment) {
+                return response()->json(['message' => 'Cita no encontrada'], 404);
+            }
+
+            $appointment->delete();
+
+            return response()->json(['message' => 'Cita eliminada correctamente'], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error al eliminar la cita',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // ============================================
+    // MÉTODOS ADICIONALES
+    // ============================================
+
+    /**
+     * POST /api/appointments/{id}/confirmar
+     */
+    public function confirm($id)
+    {
+        try {
+            $appointment = Appointment::find($id);
+
+            if (!$appointment) {
+                return response()->json(['message' => 'Cita no encontrada'], 404);
+            }
+
+            $confirmedStatus = Status::where('nombre', 'Confirmada')->first();
+
+            if (!$confirmedStatus) {
+                return response()->json(['message' => 'Estado no encontrado'], 404);
+            }
+
+            $appointment->update(['estados_id' => $confirmedStatus->id]);
+            $appointment->load(['user', 'business', 'status', 'service']);
+
+            return response()->json([
+                'message' => 'Cita confirmada exitosamente',
+                'data' => $appointment
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error al confirmar',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * POST /api/appointments/{id}/cancelar
+     */
+    public function cancel(Request $request, $id)
+    {
+        try {
+            $appointment = Appointment::find($id);
+
+            if (!$appointment) {
+                return response()->json(['message' => 'Cita no encontrada'], 404);
+            }
+
+            $validated = $request->validate([
+                'motivo' => 'nullable|string|max:500'
+            ]);
+
+            $cancelledStatus = Status::where('nombre', 'Cancelada')->first();
+
+            if (!$cancelledStatus) {
+                return response()->json(['message' => 'Estado no encontrado'], 404);
+            }
+
+            $appointment->update([
+                'estados_id' => $cancelledStatus->id,
+                'descripcion_cancel' => $validated['motivo'] ?? 'Sin motivo'
+            ]);
+
+            $appointment->load(['user', 'business', 'status', 'service']);
+
+            return response()->json([
+                'message' => 'Cita cancelada exitosamente',
+                'data' => $appointment
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error al cancelar',
                 'error' => $e->getMessage()
             ], 500);
         }

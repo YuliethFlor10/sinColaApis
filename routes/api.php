@@ -14,6 +14,14 @@ use App\Http\Controllers\CustomizationController;
 use App\Http\Controllers\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 
+
+Route::get('/appointments', [AppointmentController::class, 'index']);
+Route::get('/appointments/{id}', [AppointmentController::class, 'show']);
+Route::post('/appointments', [AppointmentController::class, 'store']);
+Route::put('/appointments/{id}', [AppointmentController::class, 'update']);
+Route::patch('/appointments/{id}', [AppointmentController::class, 'patch']);
+Route::delete('/appointments/{id}', [AppointmentController::class, 'destroy']);
+
 // ==================== RUTAS PÚBLICAS ====================
 
 // Autenticación
@@ -29,6 +37,11 @@ Route::prefix('citas')->group(function () {
     Route::post('{id}/generar-token', [AppointmentController::class, 'generarTokenPrueba'])
         ->name('appointments.generateTestToken');
 });
+ 
+// Adicionale de citas//
+Route::get('/appointments/disponibilidad/check', [AppointmentController::class, 'checkAvailability']);
+Route::post('/appointments/{id}/confirmar', [AppointmentController::class, 'confirm']);
+Route::post('/appointments/{id}/cancelar', [AppointmentController::class, 'cancel']);
 
 // Recursos públicos
 Route::apiResource('statuses', StatusController::class);
