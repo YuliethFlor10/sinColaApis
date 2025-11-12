@@ -11,44 +11,79 @@ use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\StatusController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\CustomizationController;
+use App\Http\Controllers\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 
-// Rutas públicas de autenticación
+
+Route::get('/appointments', [AppointmentController::class, 'index']);
+Route::get('/appointments/{id}', [AppointmentController::class, 'show']);
+Route::post('/appointments', [AppointmentController::class, 'store']);
+Route::put('/appointments/{id}', [AppointmentController::class, 'update']);
+Route::patch('/appointments/{id}', [AppointmentController::class, 'patch']);
+Route::delete('/appointments/{id}', [AppointmentController::class, 'destroy']);
+
+// ==================== RUTAS PÚBLICAS ====================
+
+// Autenticación
 Route::post('login', [AuthController::class, 'login'])->name('login');
 Route::post('register', [AuthController::class, 'register'])->name('register');
 
-// Ruta temporal para debug
-Route::post('debug-register', function(\Illuminate\Http\Request $request) {
-    return response()->json([
-        'received_data' => $request->all(),
-        'headers' => $request->headers->all(),
-        'method' => $request->method(),
-        'content_type' => $request->header('Content-Type')
-    ]);
+// Confirmación de citas (sin autenticación)
+Route::prefix('citas')->group(function () {
+    Route::get('{id}/confirmar', [AppointmentController::class, 'getConfirmationData'])
+        ->name('appointments.confirmation');
+    Route::put('{id}/estado', [AppointmentController::class, 'updateStatus'])
+        ->name('appointments.updateStatus');
+    Route::post('{id}/generar-token', [AppointmentController::class, 'generarTokenPrueba'])
+        ->name('appointments.generateTestToken');
 });
+ 
+// Adicionale de citas//
+Route::get('/appointments/disponibilidad/check', [AppointmentController::class, 'checkAvailability']);
+Route::post('/appointments/{id}/confirmar', [AppointmentController::class, 'confirm']);
+Route::post('/appointments/{id}/cancelar', [AppointmentController::class, 'cancel']);
 
-// Rutas públicas sin autenticación (si quieres que estén públicas)
+// Recursos públicos
 Route::apiResource('statuses', StatusController::class);
 Route::apiResource('plans', PlanController::class);
 Route::apiResource('roles', RoleController::class);
 
-// Rutas protegidas con autenticación Sanctum
+// ==================== RUTAS PROTEGIDAS ====================
+
 Route::middleware(['auth:sanctum'])->group(function () {
+
+    // Recursos CRUD
     Route::apiResource('businesses', BusinessController::class);
     Route::apiResource('users', UserController::class);
     Route::apiResource('categories', CategoryController::class);
     Route::apiResource('services', ServiceController::class);
     Route::apiResource('agendas', AgendaController::class);
+    Route::apiResource('appointments', AppointmentController::class);
     Route::apiResource('customizations', CustomizationController::class);
 
-    // Ruta específica para obtener personalización por business ID (requerida por Angular)
-    Route::get('customizations/business/{businessId}', [CustomizationController::class, 'showByBusiness'])
+    // NUEVO: Rutas de Suscripciones
+    Route::apiResource('subscriptions', SubscriptionController::class);
+
+    // NUEVO: Rutas específicas de suscripciones
+    Route::prefix('users/{usuarioId}')->group(function () {
+        // Obtener suscripción activa del usuario
+        Route::get('suscripcion-activa', [SubscriptionController::class, 'getSuscripcionActiva'])
+            ->name('subscriptions.activa');
+
+        // Obtener historial de suscripciones
+        Route::get('historial-suscripciones', [SubscriptionController::class, 'getHistorialSuscripciones'])
+            ->name('subscriptions.historial');
+
+        // Cambiar de plan (crear nueva suscripción)
+        Route::post('cambiar-plan', [SubscriptionController::class, 'cambiarPlan'])
+            ->name('subscriptions.cambiar');
+    });
+
+    // Renovar suscripción
+    Route::put('subscriptions/{id}/renovar', [SubscriptionController::class, 'renovar'])
+        ->name('subscriptions.renovar');
+
+    // Customizations por negocio
+    Route::get('businesses/{businessId}/customization', [CustomizationController::class, 'showByBusiness'])
         ->name('customizations.showByBusiness');
 });
-
-// Rutas públicas para citas necesarias por el frontend Angular
-Route::apiResource('appointments', AppointmentController::class);
-
-// Rutas adicionales específicas para appointments
-Route::patch('appointments/{id}/status', [AppointmentController::class, 'updateStatus']);
-Route::post('appointments/check-availability', [AppointmentController::class, 'checkAvailability']);
