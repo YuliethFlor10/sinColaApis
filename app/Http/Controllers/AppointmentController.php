@@ -400,93 +400,97 @@ class AppointmentController extends Controller
         }
     }
 
-    // ============================================
-    // 📧 MÉTODOS PARA CONFIRMACIÓN POR CORREO
-    // ============================================
+ // ============================================
+// 📧 MÉTODOS PARA CONFIRMACIÓN POR CORREO
+// ============================================
 
-    /**
-     * GET /api/appointments/{id}/confirm-email
-     * Confirmar cita desde el correo (URL firmada)
-     */
-    public function confirmByEmail(Request $request, $id)
-    {
-        try {
-            if (!$request->hasValidSignature()) {
-                return response()->json([
-                    'message' => 'El enlace de confirmación ha expirado o es inválido'
-                ], 403);
-            }
-
-            $appointment = Appointment::with(['business', 'service'])->find($id);
-
-            if (!$appointment) {
-                return response()->json(['message' => 'Cita no encontrada'], 404);
-            }
-
-            $confirmedStatus = Status::where('nombre', 'Confirmada')->first();
-            if ($appointment->estados_id == $confirmedStatus->id) {
-                $frontendUrl = env('FRONTEND_URL', 'http://localhost:4200');
-                return redirect()->away($frontendUrl . '/cita-confirmada?id=' . $id . '&status=already');
-            }
-
-            $cancelledStatus = Status::where('nombre', 'Cancelada')->first();
-            if ($appointment->estados_id == $cancelledStatus->id) {
-                return response()->json([
-                    'message' => 'Esta cita fue cancelada y no puede ser confirmada'
-                ], 400);
-            }
-
-            $appointment->update(['estados_id' => $confirmedStatus->id]);
-
-            $frontendUrl = env('FRONTEND_URL', 'http://localhost:4200');
-            return redirect()->away($frontendUrl . '/cita-confirmada?id=' . $id);
-
-        } catch (\Exception $e) {
+/**
+ * GET /api/appointments/{id}/confirm-email
+ * Confirmar cita desde el correo (URL firmada)
+ */
+public function confirmByEmail(Request $request, $id)
+{
+    try {
+        if (!$request->hasValidSignature()) {
             return response()->json([
-                'message' => 'Error al confirmar',
-                'error' => $e->getMessage()
-            ], 500);
+                'message' => 'El enlace de confirmación ha expirado o es inválido'
+            ], 403);
         }
-    }
 
-    /**
-     * GET /api/appointments/{id}/cancel-email
-     * Cancelar cita desde el correo (URL firmada)
-     */
-    public function cancelByEmail(Request $request, $id)
-    {
-        try {
-            if (!$request->hasValidSignature()) {
-                return response()->json([
-                    'message' => 'El enlace de cancelación ha expirado o es inválido'
-                ], 403);
-            }
+        $appointment = Appointment::with(['business', 'service'])->find($id);
 
-            $appointment = Appointment::find($id);
+        if (!$appointment) {
+            return response()->json(['message' => 'Cita no encontrada'], 404);
+        }
 
-            if (!$appointment) {
-                return response()->json(['message' => 'Cita no encontrada'], 404);
-            }
-
-            $cancelledStatus = Status::where('nombre', 'Cancelada')->first();
-            if ($appointment->estados_id == $cancelledStatus->id) {
-                $frontendUrl = env('FRONTEND_URL', 'http://localhost:4200');
-                return redirect()->away($frontendUrl . '/cita-cancelada?id=' . $id . '&status=already');
-            }
-
-            $appointment->update([
-                'estados_id' => $cancelledStatus->id,
-                'descripcion_cancel' => 'Cancelada por el cliente vía correo electrónico'
-            ]);
-
+        $confirmedStatus = Status::where('nombre', 'Confirmada')->first();
+        if ($appointment->estados_id == $confirmedStatus->id) {
             $frontendUrl = env('FRONTEND_URL', 'http://localhost:4200');
-            return redirect()->away($frontendUrl . '/cita-cancelada?id=' . $id);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Error al cancelar',
-                'error' => $e->getMessage()
-            ], 500);
+            // 🔥 CAMBIO: usar /cita-confirmada/:id en lugar de ?id=
+            return redirect()->away($frontendUrl . '/cliente-final/cita-confirmada/' . $id . '?status=already');
         }
+
+        $cancelledStatus = Status::where('nombre', 'Cancelada')->first();
+        if ($appointment->estados_id == $cancelledStatus->id) {
+            return response()->json([
+                'message' => 'Esta cita fue cancelada y no puede ser confirmada'
+            ], 400);
+        }
+
+        $appointment->update(['estados_id' => $confirmedStatus->id]);
+
+        $frontendUrl = env('FRONTEND_URL', 'http://localhost:4200');
+        // 🔥 CAMBIO: usar /cita-confirmada/:id en lugar de ?id=
+        return redirect()->away($frontendUrl . '/cliente-final/cita-confirmada/' . $id);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'message' => 'Error al confirmar',
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
+
+/**
+ * GET /api/appointments/{id}/cancel-email
+ * Cancelar cita desde el correo (URL firmada)
+ */
+public function cancelByEmail(Request $request, $id)
+{
+    try {
+        if (!$request->hasValidSignature()) {
+            return response()->json([
+                'message' => 'El enlace de cancelación ha expirado o es inválido'
+            ], 403);
+        }
+
+        $appointment = Appointment::find($id);
+
+        if (!$appointment) {
+            return response()->json(['message' => 'Cita no encontrada'], 404);
+        }
+
+        $cancelledStatus = Status::where('nombre', 'Cancelada')->first();
+        if ($appointment->estados_id == $cancelledStatus->id) {
+            $frontendUrl = env('FRONTEND_URL', 'http://localhost:4200');
+            // 🔥 CAMBIO: usar /cita-cancelada/:id en lugar de ?id=
+            return redirect()->away($frontendUrl . '/cliente-final/cita-cancelada/' . $id . '?status=already');
+        }
+
+        $appointment->update([
+            'estados_id' => $cancelledStatus->id,
+            'descripcion_cancel' => 'Cancelada por el cliente vía correo electrónico'
+        ]);
+
+        $frontendUrl = env('FRONTEND_URL', 'http://localhost:4200');
+        // 🔥 CAMBIO: usar /cita-cancelada/:id en lugar de ?id=
+        return redirect()->away($frontendUrl . '/cliente-final/cita-cancelada/' . $id);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'message' => 'Error al cancelar',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
 }

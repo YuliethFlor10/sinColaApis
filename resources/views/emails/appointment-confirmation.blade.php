@@ -62,17 +62,11 @@
         }
         .btn-confirm {
             background-color: #4CAF50;
-            color: white;
-        }
-        .btn-confirm:hover {
-            background-color: #45a049;
+            color: white !important;
         }
         .btn-cancel {
             background-color: #f44336;
-            color: white;
-        }
-        .btn-cancel:hover {
-            background-color: #da190b;
+            color: white !important;
         }
         .footer {
             text-align: center;
