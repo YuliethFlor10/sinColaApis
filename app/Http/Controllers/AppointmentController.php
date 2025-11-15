@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
+use App\Mail\AppointmentConfirmation;
 
 class AppointmentController extends Controller
 {
