@@ -21,10 +21,17 @@ class AppointmentController extends Controller
     public function index(Request $request)
     {
         try {
-            $appointments = Appointment::with(['user', 'business', 'status', 'service', 'agenda'])
+            $query = Appointment::with(['user', 'business', 'status', 'service', 'agenda'])
                 ->filtrar($request->all())
-                ->orderBy('fecha', 'desc')
-                ->get();
+                ->orderBy('fecha', 'desc');
+
+            // Si hay un usuario autenticado, limitar las citas al negocio asociado al usuario
+            $authUser = $request->user();
+            if ($authUser && isset($authUser->negocios_id) && $authUser->negocios_id) {
+                $query->delNegocio($authUser->negocios_id);
+            }
+
+            $appointments = $query->get();
 
             return response()->json($appointments, 200);
         } catch (\Exception $e) {
@@ -46,6 +53,14 @@ class AppointmentController extends Controller
 
             if (!$appointment) {
                 return response()->json(['message' => 'Cita no encontrada'], 404);
+            }
+
+            // Si hay un usuario autenticado, asegurarnos que solo acceda a citas de su negocio
+            $authUser = request()->user();
+            if ($authUser && isset($authUser->negocios_id) && $authUser->negocios_id) {
+                if ($appointment->negocios_id != $authUser->negocios_id) {
+                    return response()->json(['message' => 'Cita no encontrada'], 404);
+                }
             }
 
             return response()->json($appointment, 200);
