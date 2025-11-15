@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Appointment;
 use App\Models\Status;
 use App\Models\User;
-use App\Mail\AppointmentConfirmation;
+use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
@@ -23,10 +23,17 @@ class AppointmentController extends Controller
     public function index(Request $request)
     {
         try {
-            $appointments = Appointment::with(['user', 'business', 'status', 'service'])
+            $query = Appointment::with(['user', 'business', 'status', 'service', 'agenda'])
                 ->filtrar($request->all())
-                ->orderBy('fecha', 'desc')
-                ->get();
+                ->orderBy('fecha', 'desc');
+
+            // Si hay un usuario autenticado, limitar las citas al negocio asociado al usuario
+            $authUser = $request->user();
+            if ($authUser && isset($authUser->negocios_id) && $authUser->negocios_id) {
+                $query->delNegocio($authUser->negocios_id);
+            }
+
+            $appointments = $query->get();
 
             return response()->json($appointments, 200);
         } catch (\Exception $e) {
@@ -43,11 +50,19 @@ class AppointmentController extends Controller
     public function show($id)
     {
         try {
-            $appointment = Appointment::with(['user', 'business', 'status', 'service'])
+            $appointment = Appointment::with(['user', 'business', 'status', 'service', 'agenda'])
                 ->find($id);
 
             if (!$appointment) {
                 return response()->json(['message' => 'Cita no encontrada'], 404);
+            }
+
+            // Si hay un usuario autenticado, asegurarnos que solo acceda a citas de su negocio
+            $authUser = request()->user();
+            if ($authUser && isset($authUser->negocios_id) && $authUser->negocios_id) {
+                if ($appointment->negocios_id != $authUser->negocios_id) {
+                    return response()->json(['message' => 'Cita no encontrada'], 404);
+                }
             }
 
             return response()->json($appointment, 200);
@@ -67,20 +82,37 @@ class AppointmentController extends Controller
     {
         try {
             // Validación
+            // Aceptar ambos nombres de campos según lo que envíe el frontend
             $validated = $request->validate([
-                'nombre' => 'required|string|max:255',
+                'nombre' => 'required_without:nombres|string|max:255',
+                'nombres' => 'required_without:nombre|string|max:255',
+                // 'apellidos' puede venir vacío desde el frontend; permitir null/empty
+                'apellidos' => 'sometimes|nullable|string|max:255',
                 'email' => 'required|email',
-                'tipo_documento' => 'required|string|max:10',
-                'numero_documento' => 'required|string|max:50',
-                'fecha_nacimiento' => 'required|date',
-                'numero_telefono' => 'required|string|max:20',
-                'tipo_cita' => 'required|string',
+
+                // Tipo de identificación: puede enviarse como abreviatura ('tipo_documento')
+                // o como id ('tipo_identificacion_id')
+                'tipo_documento' => 'required_without:tipo_identificacion_id|string|max:10',
+                'tipo_identificacion_id' => 'required_without:tipo_documento|integer|exists:categories,id',
+
+                'numero_documento' => 'required_without:identificacion|string|max:50',
+                'identificacion' => 'required_without:numero_documento|string|max:50',
+
+                // Fecha de nacimiento es opcional; el usuario puede no proporcionarla
+                'fecha_nacimiento' => 'nullable|date',
+                'nacimiento' => 'nullable|date',
+
+                'numero_telefono' => 'required_without:celular|string|max:20',
+                'celular' => 'required_without:numero_telefono|string|max:20',
+
+                'tipo_cita' => 'required_without:servicios_id|string',
                 'personal_servicio' => 'required|string',
                 'fecha_cita' => 'required|date',
                 'hora_cita' => 'required|string',
                 'nota' => 'nullable|string',
                 'negocios_id' => 'required|exists:businesses,id',
                 'servicios_id' => 'required|exists:services,id',
+                'agendas_id' => 'nullable|exists:agendas,id',
                 'estados_id' => 'nullable|exists:statuses,id',
                 'tiempo_estimado' => 'nullable|integer'
             ]);
@@ -89,20 +121,72 @@ class AppointmentController extends Controller
             $user = User::where('email', $validated['email'])->first();
 
             if (!$user) {
-                $nombrePartes = explode(' ', $validated['nombre']);
+                // Determinar nombres y apellidos según lo enviado
+                if (!empty($validated['nombres'])) {
+                    $nombres = $validated['nombres'];
+                    $apellidos = (isset($validated['apellidos']) && trim($validated['apellidos']) !== '') ? $validated['apellidos'] : 'Nuevo';
+                } else {
+                    // 'nombre' se puede enviar como una sola cadena, separarla
+                    $nombrePartes = explode(' ', $validated['nombre']);
+                    $nombres = $nombrePartes[0] ?? 'Cliente';
+                    $apellidos = implode(' ', array_slice($nombrePartes, 1)) ?: 'Nuevo';
+                }
+
+                // Determinar tipo_identificacion_id: usar id si fue enviado, si no, buscar por abreviatura
+                $tipoIdentificacionId = $validated['tipo_identificacion_id'] ?? null;
+                if (!$tipoIdentificacionId && !empty($validated['tipo_documento'])) {
+                    $tipoAbrev = mb_strtolower($validated['tipo_documento']);
+                    $category = Category::whereRaw('LOWER(abreviatura) = ?', [$tipoAbrev])->first();
+                    $tipoIdentificacionId = $category->id ?? 1; // fallback a 1
+                }
+
+                // Determinar identificacion
+                $identificacion = $validated['identificacion'] ?? ($validated['numero_documento'] ?? null);
+
+                // Determinar celular
+                $celular = $validated['celular'] ?? ($validated['numero_telefono'] ?? null);
+
                 $user = User::create([
-                    'nombres' => $nombrePartes[0] ?? 'Cliente',
-                    'apellidos' => implode(' ', array_slice($nombrePartes, 1)) ?: 'Nuevo',
+                    'nombres' => $nombres,
+                    'apellidos' => $apellidos,
                     'email' => $validated['email'],
-                    'celular' => $validated['numero_telefono'],
-                    'tipo_identificacion_id' => 1,
-                    'identificacion' => $validated['numero_documento'],
-                    'password' => bcrypt('temp_' . rand(100000, 999999)),
-                    'roles_id' => 3,
-                    'estados_id' => 1,
-                    'negocios_id' => $validated['negocios_id']
+                    'celular' => $celular,
+                    'tipo_identificacion_id' => $tipoIdentificacionId ?? 1,
+                    'identificacion' => $identificacion,
+                    'clave' => bcrypt('temp_' . rand(100000, 999999)),
+                    'estados_id' => $validated['estados_id'] ?? 1,
+                    'roles_id' => 3 // Cliente
                 ]);
             }
+
+            // Preparar datos del cliente para guardar en la cita (aceptar variantes)
+            // Nombre completo: preferir 'nombre', sino combinar 'nombres' + 'apellidos'
+            if (!empty($validated['nombre'])) {
+                $clienteNombre = $validated['nombre'];
+            } else {
+                $n = $validated['nombres'] ?? '';
+                $a = isset($validated['apellidos']) && trim($validated['apellidos']) !== '' ? $validated['apellidos'] : '';
+                $clienteNombre = trim($n . ' ' . $a);
+            }
+
+            // Email
+            $clienteEmail = $validated['email'] ?? null;
+
+            // Tipo de documento: preferir 'tipo_documento' (abreviatura), si no, obtener de la category por id
+            $clienteTipoDoc = $validated['tipo_documento'] ?? null;
+            if (!$clienteTipoDoc && !empty($validated['tipo_identificacion_id'])) {
+                $catForCliente = Category::find($validated['tipo_identificacion_id']);
+                $clienteTipoDoc = $catForCliente->abreviatura ?? null;
+            }
+
+            // Número de documento
+            $clienteNumDoc = $validated['numero_documento'] ?? ($validated['identificacion'] ?? null);
+
+            // Fecha de nacimiento
+            $clienteFechaNac = $validated['fecha_nacimiento'] ?? ($validated['nacimiento'] ?? null);
+
+            // Teléfono
+            $clienteTelefono = $validated['numero_telefono'] ?? ($validated['celular'] ?? null);
 
             // Construir fecha completa
             $fechaCompleta = Carbon::parse($validated['fecha_cita'] . ' ' . $validated['hora_cita']);
@@ -121,6 +205,7 @@ class AppointmentController extends Controller
                 'usuarios_id' => $user->id,
                 'negocios_id' => $validated['negocios_id'],
                 'servicios_id' => $validated['servicios_id'],
+                'agendas_id' => $validated['agendas_id'] ?? null,
                 'estados_id' => $validated['estados_id'] ?? 1,
                 'fecha' => $fechaCompleta,
                 'fecha_fin' => $fechaFin,
@@ -128,17 +213,17 @@ class AppointmentController extends Controller
                 'nota' => $validated['nota'] ?? null,
 
                 // 🔥 DATOS DEL CLIENTE EN LA CITA
-                'cliente_nombre' => $validated['nombre'],
-                'cliente_email' => $validated['email'],
-                'cliente_tipo_doc' => $validated['tipo_documento'],
-                'cliente_num_doc' => $validated['numero_documento'],
-                'cliente_fecha_nac' => $validated['fecha_nacimiento'],
-                'cliente_telefono' => $validated['numero_telefono'],
-                'tipo_servicio' => $validated['tipo_cita'],
-                'personal_asignado' => $validated['personal_servicio']
+                'cliente_nombre' => $clienteNombre,
+                'cliente_email' => $clienteEmail,
+                'cliente_tipo_doc' => $clienteTipoDoc,
+                'cliente_num_doc' => $clienteNumDoc,
+                'cliente_fecha_nac' => $clienteFechaNac,
+                'cliente_telefono' => $clienteTelefono,
+                'tipo_servicio' => $validated['tipo_cita'] ?? null,
+                'personal_asignado' => $validated['personal_servicio'] ?? null
             ]);
 
-            $appointment->load(['user', 'business', 'status', 'service']);
+            $appointment->load(['user', 'business', 'status', 'service', 'agenda']);
 
             // 📧 ENVIAR CORREO DE CONFIRMACIÓN
             $emailSent = false;
@@ -186,13 +271,26 @@ class AppointmentController extends Controller
             }
 
             // Validación
+            // Validación (acepta variantes de campos del frontend)
             $validated = $request->validate([
-                'nombre' => 'sometimes|string|max:255',
+                'nombre' => 'sometimes|required_without:nombres|string|max:255',
+                'nombres' => 'sometimes|required_without:nombre|string|max:255',
+                // permitir apellidos nulos cuando nombres está presente
+                'apellidos' => 'sometimes|nullable|string|max:255',
                 'email' => 'sometimes|email',
-                'tipo_documento' => 'sometimes|string|max:10',
-                'numero_documento' => 'sometimes|string|max:50',
-                'fecha_nacimiento' => 'sometimes|date',
-                'numero_telefono' => 'sometimes|string|max:20',
+
+                'tipo_documento' => 'sometimes|required_without:tipo_identificacion_id|string|max:10',
+                'tipo_identificacion_id' => 'sometimes|required_without:tipo_documento|integer|exists:categories,id',
+
+                'numero_documento' => 'sometimes|required_without:identificacion|string|max:50',
+                'identificacion' => 'sometimes|required_without:numero_documento|string|max:50',
+
+                'fecha_nacimiento' => 'sometimes|required_without:nacimiento|date',
+                'nacimiento' => 'sometimes|required_without:fecha_nacimiento|date',
+
+                'numero_telefono' => 'sometimes|required_without:celular|string|max:20',
+                'celular' => 'sometimes|required_without:numero_telefono|string|max:20',
+
                 'tipo_cita' => 'sometimes|string',
                 'personal_servicio' => 'sometimes|string',
                 'fecha_cita' => 'sometimes|date',
@@ -248,7 +346,7 @@ class AppointmentController extends Controller
 
             // 🔥 ACTUALIZAR SOLO ESTA CITA
             $appointment->update($dataToUpdate);
-            $appointment->load(['user', 'business', 'status', 'service']);
+            $appointment->load(['user', 'business', 'status', 'service', 'agenda']);
 
             return response()->json($appointment, 200);
 
@@ -284,7 +382,7 @@ class AppointmentController extends Controller
             ]);
 
             $appointment->update($validated);
-            $appointment->load(['user', 'business', 'status', 'service']);
+            $appointment->load(['user', 'business', 'status', 'service', 'agenda']);
 
             return response()->json($appointment, 200);
 
@@ -343,7 +441,7 @@ class AppointmentController extends Controller
             }
 
             $appointment->update(['estados_id' => $confirmedStatus->id]);
-            $appointment->load(['user', 'business', 'status', 'service']);
+            $appointment->load(['user', 'business', 'status', 'service', 'agenda']);
 
             return response()->json([
                 'message' => 'Cita confirmada exitosamente',
@@ -385,7 +483,7 @@ class AppointmentController extends Controller
                 'descripcion_cancel' => $validated['motivo'] ?? 'Sin motivo'
             ]);
 
-            $appointment->load(['user', 'business', 'status', 'service']);
+            $appointment->load(['user', 'business', 'status', 'service', 'agenda']);
 
             return response()->json([
                 'message' => 'Cita cancelada exitosamente',

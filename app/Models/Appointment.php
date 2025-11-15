@@ -14,6 +14,7 @@ class Appointment extends Model
         'usuarios_id',
         'negocios_id',
         'servicios_id',
+        'agendas_id',
         'estados_id',
         'nota',
         'fecha',
@@ -21,7 +22,7 @@ class Appointment extends Model
         'tiempo_estimado',
         'descripcion_cancel',
 
-        // 🔥 CAMPOS DE CLIENTE
+        // 🔥 NUEVOS CAMPOS DE CLIENTE
         'cliente_nombre',
         'cliente_email',
         'cliente_tipo_doc',
@@ -72,6 +73,11 @@ class Appointment extends Model
     public function status()
     {
         return $this->belongsTo(Status::class, 'estados_id');
+    }
+
+    public function agenda()
+    {
+        return $this->belongsTo(Agenda::class, 'agendas_id');
     }
 
     // ============================================

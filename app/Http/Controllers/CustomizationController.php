@@ -102,6 +102,9 @@ class CustomizationController extends Controller
                 ], 422);
             }
 
+            // Manejar carga de archivos
+            $validatedData = $this->handleFileUploads($request, $validatedData);
+
             $customization = Customization::create($validatedData);
             $customization->load('business');
 
@@ -133,6 +136,9 @@ class CustomizationController extends Controller
         try {
             $customization = Customization::findOrFail($id);
             $validatedData = $this->validateCustomization($request, $customization->id);
+
+            // Manejar carga de archivos
+            $validatedData = $this->handleFileUploads($request, $validatedData);
 
             $customization->update($validatedData);
             $customization->load('business');
@@ -180,6 +186,21 @@ class CustomizationController extends Controller
     }
 
     /**
+     * Manejar carga de archivos
+     */
+    private function handleFileUploads(Request $request, array $data): array
+    {
+        if ($request->hasFile('logo_empresa')) {
+            $file = $request->file('logo_empresa');
+            $filename = time() . '_logo_empresa.' . $file->getClientOriginalExtension();
+            $path = $file->storeAs('customizations', $filename, 'public');
+            $data['logo_empresa'] = $path;
+        }
+
+        return $data;
+    }
+
+    /**
      * Validar datos de personalización
      */
     private function validateCustomization(Request $request, ?int $excludeId = null): array
@@ -187,44 +208,16 @@ class CustomizationController extends Controller
         $rules = [
             'negocios_id' => 'required|exists:businesses,id',
 
-            // === BRANDING ===
+            // === INFORMACIÓN DEL NEGOCIO ===
             'nombre_comercial' => 'nullable|string|max:200',
             'eslogan' => 'nullable|string|max:300',
             'descripcion_negocio' => 'nullable|string',
-
-            // === COLORES (formato hexadecimal) ===
-            'color_primario' => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',
-            'color_secundario' => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',
-            'color_fondo_izquierdo' => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',
-            'color_fondo_derecho' => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',
-            'color_texto_principal' => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',
-            'color_texto_secundario' => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',
-
-            // === MULTIMEDIA ===
-            'logo_principal' => 'nullable|string|max:500',
-            'logo_pequeno' => 'nullable|string|max:500',
-            'favicon' => 'nullable|string|max:500',
-
-            // === CONFIGURACIÓN DE CITAS ===
-            'duracion_slot_minutos' => 'nullable|integer|min:5|max:240',
-            'anticipacion_minima_horas' => 'nullable|integer|min:0|max:72',
-            'horario_atencion_inicio' => 'nullable|date_format:H:i',
-            'horario_atencion_fin' => 'nullable|date_format:H:i',
-            'dias_atencion' => 'nullable|string|max:20',
-            'maximo_citas_dia' => 'nullable|integer|min:1|max:100',
-
-            // === TEXTOS ===
-            'titulo_principal' => 'nullable|string|max:100',
-            'subtitulo_formulario' => 'nullable|string|max:200',
-            'mensaje_bienvenida' => 'nullable|string',
-            'mensaje_confirmacion' => 'nullable|string',
-            'texto_seguir_redes' => 'nullable|string|max:100',
 
             // === REDES SOCIALES ===
             'facebook_url' => 'nullable|url|max:500',
             'instagram_url' => 'nullable|url|max:500',
             'whatsapp_numero' => 'nullable|string|max:20|regex:/^\+[1-9]\d{1,14}$/',
-            'mostrar_redes_sociales' => 'nullable|boolean',
+            'texto_seguir_redes' => 'nullable|string|max:100',
 
             // === MÉTODOS DE PAGO ===
             'acepta_efectivo' => 'nullable|boolean',
@@ -233,15 +226,10 @@ class CustomizationController extends Controller
             'acepta_transferencia' => 'nullable|boolean',
             'texto_metodos_pago' => 'nullable|string|max:200',
 
-            // === CONFIGURACIONES ADICIONALES ===
-            'mostrar_precios_publicos' => 'nullable|boolean',
-            'requiere_confirmacion_email' => 'nullable|boolean',
-            'requiere_confirmacion_telefono' => 'nullable|boolean',
-            'permite_cancelacion_cliente' => 'nullable|boolean',
-            'horas_limite_cancelacion' => 'nullable|integer|min:1|max:168',
-
-            // === CONFIGURACIÓN EXTRA ===
-            'configuracion_extra' => 'nullable|string',
+            // === ARCHIVOS Y COLORES ===
+            'logo_empresa' => 'nullable|file|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'color_fondo_branding' => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',
+            'color_letra_branding' => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',
         ];
 
         // Validación única para negocios_id (excepto en updates)
@@ -260,32 +248,14 @@ class CustomizationController extends Controller
     private function getDefaultCustomizationData(): array
     {
         return [
-            'color_primario' => '#e91e63',
-            'color_secundario' => '#c2185b',
-            'color_fondo_izquierdo' => '#f8d7da',
-            'color_fondo_derecho' => '#d1477a',
-            'color_texto_principal' => '#333333',
-            'color_texto_secundario' => '#666666',
-            'duracion_slot_minutos' => 30,
-            'anticipacion_minima_horas' => 2,
-            'horario_atencion_inicio' => '09:00',
-            'horario_atencion_fin' => '18:00',
-            'dias_atencion' => 'L,M,M,J,V,S',
-            'maximo_citas_dia' => 20,
-            'titulo_principal' => '¡Agenda SinCola!',
-            'subtitulo_formulario' => 'Por favor ingresa los siguientes datos para realizar tu reserva',
+            'color_fondo_branding' => '#f8d7da',
+            'color_letra_branding' => '#333333',
             'texto_seguir_redes' => 'Síguenos en nuestras redes sociales',
-            'mostrar_redes_sociales' => true,
             'acepta_efectivo' => true,
             'acepta_tarjeta' => true,
-            'acepta_nequi' => true,
+            'acepta_nequi' => false,
             'acepta_transferencia' => false,
-            'texto_metodos_pago' => 'Métodos de pago aceptados por',
-            'mostrar_precios_publicos' => true,
-            'requiere_confirmacion_email' => true,
-            'requiere_confirmacion_telefono' => false,
-            'permite_cancelacion_cliente' => true,
-            'horas_limite_cancelacion' => 24,
+            'texto_metodos_pago' => 'Métodos de pago aceptados',
         ];
     }
 }

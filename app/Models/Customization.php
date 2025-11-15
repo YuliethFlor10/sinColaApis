@@ -15,44 +15,16 @@ class Customization extends Model
     protected $fillable = [
         'negocios_id',
 
-        // === BRANDING VISIBLE AL CLIENTE ===
+        // === INFORMACIÓN DEL NEGOCIO ===
         'nombre_comercial',
         'eslogan',
         'descripcion_negocio',
-
-        // === COLORES DEL TEMA ===
-        'color_primario',
-        'color_secundario',
-        'color_fondo_izquierdo',
-        'color_fondo_derecho',
-        'color_texto_principal',
-        'color_texto_secundario',
-
-        // === ARCHIVOS MULTIMEDIA ===
-        'logo_principal',
-        'logo_pequeno',
-        'favicon',
-
-        // === CONFIGURACIÓN DE CITAS ===
-        'duracion_slot_minutos',
-        'anticipacion_minima_horas',
-        'horario_atencion_inicio',
-        'horario_atencion_fin',
-        'dias_atencion',
-        'maximo_citas_dia',
-
-        // === TEXTOS PERSONALIZABLES ===
-        'titulo_principal',
-        'subtitulo_formulario',
-        'mensaje_bienvenida',
-        'mensaje_confirmacion',
-        'texto_seguir_redes',
 
         // === REDES SOCIALES ===
         'facebook_url',
         'instagram_url',
         'whatsapp_numero',
-        'mostrar_redes_sociales',
+        'texto_seguir_redes',
 
         // === MÉTODOS DE PAGO ===
         'acepta_efectivo',
@@ -61,30 +33,17 @@ class Customization extends Model
         'acepta_transferencia',
         'texto_metodos_pago',
 
-        // === CONFIGURACIONES ADICIONALES ===
-        'mostrar_precios_publicos',
-        'requiere_confirmacion_email',
-        'requiere_confirmacion_telefono',
-        'permite_cancelacion_cliente',
-        'horas_limite_cancelacion',
-
-        // === CONFIGURACIÓN EXTRA ===
-        'configuracion_extra',
+        // === ARCHIVOS Y COLORES ===
+        'logo_empresa',
+        'color_fondo_branding',
+        'color_letra_branding',
     ];
 
     protected $casts = [
-        'mostrar_redes_sociales' => 'boolean',
         'acepta_efectivo' => 'boolean',
         'acepta_tarjeta' => 'boolean',
         'acepta_nequi' => 'boolean',
         'acepta_transferencia' => 'boolean',
-        'mostrar_precios_publicos' => 'boolean',
-        'requiere_confirmacion_email' => 'boolean',
-        'requiere_confirmacion_telefono' => 'boolean',
-        'permite_cancelacion_cliente' => 'boolean',
-        'horario_atencion_inicio' => 'datetime:H:i',
-        'horario_atencion_fin' => 'datetime:H:i',
-        'configuracion_extra' => 'array',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -96,28 +55,11 @@ class Customization extends Model
     }
 
     // Métodos útiles para trabajar con colores
-    public function getThemeColors(): array
+    public function getBrandingColors(): array
     {
         return [
-            'primary' => $this->color_primario,
-            'secondary' => $this->color_secundario,
-            'backgroundLeft' => $this->color_fondo_izquierdo,
-            'backgroundRight' => $this->color_fondo_derecho,
-            'textPrimary' => $this->color_texto_principal,
-            'textSecondary' => $this->color_texto_secundario,
-        ];
-    }
-
-    // Método para obtener configuración de horarios
-    public function getScheduleConfig(): array
-    {
-        return [
-            'slotDuration' => $this->duracion_slot_minutos,
-            'minAdvanceHours' => $this->anticipacion_minima_horas,
-            'startTime' => $this->horario_atencion_inicio,
-            'endTime' => $this->horario_atencion_fin,
-            'workingDays' => explode(',', $this->dias_atencion),
-            'maxDailyAppointments' => $this->maximo_citas_dia,
+            'background' => $this->color_fondo_branding,
+            'text' => $this->color_letra_branding,
         ];
     }
 
@@ -132,5 +74,16 @@ class Customization extends Model
         if ($this->acepta_transferencia) $methods[] = 'transferencia';
 
         return $methods;
+    }
+
+    // Método para obtener información de redes sociales
+    public function getSocialMediaInfo(): array
+    {
+        return [
+            'facebook' => $this->facebook_url,
+            'instagram' => $this->instagram_url,
+            'whatsapp' => $this->whatsapp_numero,
+            'followText' => $this->texto_seguir_redes,
+        ];
     }
 }
