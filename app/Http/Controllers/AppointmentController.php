@@ -5,7 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Appointment;
 use App\Models\Status;
 use App\Models\User;
+use App\Mail\AppointmentConfirmation;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class AppointmentController extends Controller
@@ -58,7 +61,7 @@ class AppointmentController extends Controller
 
     /**
      * POST /api/appointments
-     * 🔥 CREAR - Guarda datos del cliente EN la cita
+     * 🔥 CREAR - Guarda datos del cliente EN la cita + 📧 ENVÍA CORREO
      */
     public function store(Request $request)
     {
@@ -84,7 +87,7 @@ class AppointmentController extends Controller
 
             // 🔥 Buscar o crear usuario (solo para la relación)
             $user = User::where('email', $validated['email'])->first();
-            
+
             if (!$user) {
                 $nombrePartes = explode(' ', $validated['nombre']);
                 $user = User::create([
@@ -92,11 +95,12 @@ class AppointmentController extends Controller
                     'apellidos' => implode(' ', array_slice($nombrePartes, 1)) ?: 'Nuevo',
                     'email' => $validated['email'],
                     'celular' => $validated['numero_telefono'],
-                    'tipo_documento' => $validated['tipo_documento'],
-                    'numero_documento' => $validated['numero_documento'],
-                    'fecha_nacimiento' => $validated['fecha_nacimiento'],
+                    'tipo_identificacion_id' => 1,
+                    'identificacion' => $validated['numero_documento'],
                     'password' => bcrypt('temp_' . rand(100000, 999999)),
-                    'roles_id' => 3 // Cliente
+                    'roles_id' => 3,
+                    'estados_id' => 1,
+                    'negocios_id' => $validated['negocios_id']
                 ]);
             }
 
@@ -122,7 +126,7 @@ class AppointmentController extends Controller
                 'fecha_fin' => $fechaFin,
                 'tiempo_estimado' => $tiempoEstimado,
                 'nota' => $validated['nota'] ?? null,
-                
+
                 // 🔥 DATOS DEL CLIENTE EN LA CITA
                 'cliente_nombre' => $validated['nombre'],
                 'cliente_email' => $validated['email'],
@@ -136,7 +140,24 @@ class AppointmentController extends Controller
 
             $appointment->load(['user', 'business', 'status', 'service']);
 
-            return response()->json($appointment, 201);
+            // 📧 ENVIAR CORREO DE CONFIRMACIÓN
+            $emailSent = false;
+            $emailError = null;
+
+            try {
+                Mail::to($validated['email'])->send(new AppointmentConfirmation($appointment));
+                $emailSent = true;
+                Log::info('✅ Correo enviado exitosamente a: ' . $validated['email']);
+            } catch (\Exception $mailError) {
+                $emailError = $mailError->getMessage();
+                Log::warning('❌ No se pudo enviar el correo: ' . $emailError);
+            }
+
+            return response()->json([
+                'appointment' => $appointment,
+                'email_sent' => $emailSent,
+                'email_error' => $emailError
+            ], 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -187,7 +208,7 @@ class AppointmentController extends Controller
             if (isset($validated['fecha_cita']) || isset($validated['hora_cita'])) {
                 $fechaCita = $validated['fecha_cita'] ?? $appointment->fecha->format('Y-m-d');
                 $horaCita = $validated['hora_cita'] ?? $appointment->fecha->format('H:i');
-                
+
                 $fechaCompleta = Carbon::parse($fechaCita . ' ' . $horaCita);
                 $tiempoEstimado = $validated['tiempo_estimado'] ?? $appointment->tiempo_estimado;
                 $fechaFin = $fechaCompleta->copy()->addMinutes($tiempoEstimado);
@@ -205,7 +226,7 @@ class AppointmentController extends Controller
 
             // 🔥 MAPEAR CAMPOS DEL FRONTEND AL BACKEND
             $dataToUpdate = [];
-            
+
             // Campos de negocio
             if (isset($validated['negocios_id'])) $dataToUpdate['negocios_id'] = $validated['negocios_id'];
             if (isset($validated['servicios_id'])) $dataToUpdate['servicios_id'] = $validated['servicios_id'];
@@ -214,7 +235,7 @@ class AppointmentController extends Controller
             if (isset($validated['tiempo_estimado'])) $dataToUpdate['tiempo_estimado'] = $validated['tiempo_estimado'];
             if (isset($validated['fecha'])) $dataToUpdate['fecha'] = $validated['fecha'];
             if (isset($validated['fecha_fin'])) $dataToUpdate['fecha_fin'] = $validated['fecha_fin'];
-            
+
             // 🔥 Campos del cliente (guardar EN la cita)
             if (isset($validated['nombre'])) $dataToUpdate['cliente_nombre'] = $validated['nombre'];
             if (isset($validated['email'])) $dataToUpdate['cliente_email'] = $validated['email'];
@@ -370,6 +391,96 @@ class AppointmentController extends Controller
                 'message' => 'Cita cancelada exitosamente',
                 'data' => $appointment
             ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error al cancelar',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // ============================================
+    // 📧 MÉTODOS PARA CONFIRMACIÓN POR CORREO
+    // ============================================
+
+    /**
+     * GET /api/appointments/{id}/confirm-email
+     * Confirmar cita desde el correo (URL firmada)
+     */
+    public function confirmByEmail(Request $request, $id)
+    {
+        try {
+            if (!$request->hasValidSignature()) {
+                return response()->json([
+                    'message' => 'El enlace de confirmación ha expirado o es inválido'
+                ], 403);
+            }
+
+            $appointment = Appointment::with(['business', 'service'])->find($id);
+
+            if (!$appointment) {
+                return response()->json(['message' => 'Cita no encontrada'], 404);
+            }
+
+            $confirmedStatus = Status::where('nombre', 'Confirmada')->first();
+            if ($appointment->estados_id == $confirmedStatus->id) {
+                $frontendUrl = env('FRONTEND_URL', 'http://localhost:4200');
+                return redirect()->away($frontendUrl . '/cita-confirmada?id=' . $id . '&status=already');
+            }
+
+            $cancelledStatus = Status::where('nombre', 'Cancelada')->first();
+            if ($appointment->estados_id == $cancelledStatus->id) {
+                return response()->json([
+                    'message' => 'Esta cita fue cancelada y no puede ser confirmada'
+                ], 400);
+            }
+
+            $appointment->update(['estados_id' => $confirmedStatus->id]);
+
+            $frontendUrl = env('FRONTEND_URL', 'http://localhost:4200');
+            return redirect()->away($frontendUrl . '/cita-confirmada?id=' . $id);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error al confirmar',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * GET /api/appointments/{id}/cancel-email
+     * Cancelar cita desde el correo (URL firmada)
+     */
+    public function cancelByEmail(Request $request, $id)
+    {
+        try {
+            if (!$request->hasValidSignature()) {
+                return response()->json([
+                    'message' => 'El enlace de cancelación ha expirado o es inválido'
+                ], 403);
+            }
+
+            $appointment = Appointment::find($id);
+
+            if (!$appointment) {
+                return response()->json(['message' => 'Cita no encontrada'], 404);
+            }
+
+            $cancelledStatus = Status::where('nombre', 'Cancelada')->first();
+            if ($appointment->estados_id == $cancelledStatus->id) {
+                $frontendUrl = env('FRONTEND_URL', 'http://localhost:4200');
+                return redirect()->away($frontendUrl . '/cita-cancelada?id=' . $id . '&status=already');
+            }
+
+            $appointment->update([
+                'estados_id' => $cancelledStatus->id,
+                'descripcion_cancel' => 'Cancelada por el cliente vía correo electrónico'
+            ]);
+
+            $frontendUrl = env('FRONTEND_URL', 'http://localhost:4200');
+            return redirect()->away($frontendUrl . '/cita-cancelada?id=' . $id);
 
         } catch (\Exception $e) {
             return response()->json([

@@ -20,8 +20,8 @@ class Appointment extends Model
         'fecha_fin',
         'tiempo_estimado',
         'descripcion_cancel',
-        
-        // 🔥 NUEVOS CAMPOS DE CLIENTE
+
+        // 🔥 CAMPOS DE CLIENTE
         'cliente_nombre',
         'cliente_email',
         'cliente_tipo_doc',
@@ -30,6 +30,10 @@ class Appointment extends Model
         'cliente_telefono',
         'tipo_servicio',
         'personal_asignado',
+
+        // 🔥 CAMPOS DE TOKEN
+        'confirmation_token',
+        'token_expires_at',
     ];
 
     protected $casts = [
@@ -37,16 +41,17 @@ class Appointment extends Model
         'fecha_fin' => 'datetime',
         'tiempo_estimado' => 'integer',
         'cliente_fecha_nac' => 'date',
+        'token_expires_at' => 'datetime',
     ];
 
     protected $allowedFilters = [
-        'negocio_id', 'usuario_id', 'estado', 'fecha', 'fecha_inicio', 
-        'fecha_fin', 'servicio_id', 'hora_inicio', 'hora_fin', 'hoy', 
+        'negocio_id', 'usuario_id', 'estado', 'fecha', 'fecha_inicio',
+        'fecha_fin', 'servicio_id', 'hora_inicio', 'hora_fin', 'hoy',
         'proximas', 'esta_semana', 'con_retraso', 'minutos_retraso',
     ];
 
     // ============================================
-    // RELACIONES (OPCIONALES)
+    // RELACIONES
     // ============================================
 
     public function user()
@@ -207,7 +212,7 @@ class Appointment extends Model
     public static function hasConflict($fecha, $fechaFin, $usuarioId, $excludeId = null)
     {
         $query = self::where('usuarios_id', $usuarioId)
-            ->where('estados_id', '!=', 5) // Excluir canceladas
+            ->where('estados_id', '!=', 3) // Excluir canceladas
             ->where(function ($q) use ($fecha, $fechaFin) {
                 $q->whereBetween('fecha', [$fecha, $fechaFin])
                   ->orWhereBetween('fecha_fin', [$fecha, $fechaFin])

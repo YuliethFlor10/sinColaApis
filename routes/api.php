@@ -14,15 +14,22 @@ use App\Http\Controllers\CustomizationController;
 use App\Http\Controllers\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 
+// ==================== RUTAS PÚBLICAS ====================
 
+// 📧 Rutas para confirmación/cancelación por email (URLs firmadas)
+Route::get('/appointments/{id}/confirm-email', [AppointmentController::class, 'confirmByEmail'])
+    ->name('appointments.confirm.email');
+
+Route::get('/appointments/{id}/cancel-email', [AppointmentController::class, 'cancelByEmail'])
+    ->name('appointments.cancel.email');
+
+// CRUD de appointments
 Route::get('/appointments', [AppointmentController::class, 'index']);
 Route::get('/appointments/{id}', [AppointmentController::class, 'show']);
 Route::post('/appointments', [AppointmentController::class, 'store']);
 Route::put('/appointments/{id}', [AppointmentController::class, 'update']);
 Route::patch('/appointments/{id}', [AppointmentController::class, 'patch']);
 Route::delete('/appointments/{id}', [AppointmentController::class, 'destroy']);
-
-// ==================== RUTAS PÚBLICAS ====================
 
 // Autenticación
 Route::post('login', [AuthController::class, 'login'])->name('login');
@@ -37,8 +44,8 @@ Route::prefix('citas')->group(function () {
     Route::post('{id}/generar-token', [AppointmentController::class, 'generarTokenPrueba'])
         ->name('appointments.generateTestToken');
 });
- 
-// Adicionale de citas//
+
+// Adicionales de citas
 Route::get('/appointments/disponibilidad/check', [AppointmentController::class, 'checkAvailability']);
 Route::post('/appointments/{id}/confirmar', [AppointmentController::class, 'confirm']);
 Route::post('/appointments/{id}/cancelar', [AppointmentController::class, 'cancel']);
@@ -66,24 +73,19 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // NUEVO: Rutas específicas de suscripciones
     Route::prefix('users/{usuarioId}')->group(function () {
-        // Obtener suscripción activa del usuario
         Route::get('suscripcion-activa', [SubscriptionController::class, 'getSuscripcionActiva'])
             ->name('subscriptions.activa');
 
-        // Obtener historial de suscripciones
         Route::get('historial-suscripciones', [SubscriptionController::class, 'getHistorialSuscripciones'])
             ->name('subscriptions.historial');
 
-        // Cambiar de plan (crear nueva suscripción)
         Route::post('cambiar-plan', [SubscriptionController::class, 'cambiarPlan'])
             ->name('subscriptions.cambiar');
     });
 
-    // Renovar suscripción
     Route::put('subscriptions/{id}/renovar', [SubscriptionController::class, 'renovar'])
         ->name('subscriptions.renovar');
 
-    // Customizations por negocio
     Route::get('businesses/{businessId}/customization', [CustomizationController::class, 'showByBusiness'])
         ->name('customizations.showByBusiness');
 });
