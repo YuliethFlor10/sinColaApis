@@ -21,7 +21,7 @@ class Appointment extends Model
         'fecha_fin',
         'tiempo_estimado',
         'descripcion_cancel',
-        
+
         // 🔥 NUEVOS CAMPOS DE CLIENTE
         'cliente_nombre',
         'cliente_email',
@@ -41,8 +41,8 @@ class Appointment extends Model
     ];
 
     protected $allowedFilters = [
-        'negocio_id', 'usuario_id', 'estado', 'fecha', 'fecha_inicio', 
-        'fecha_fin', 'servicio_id', 'hora_inicio', 'hora_fin', 'hoy', 
+        'negocio_id', 'usuario_id', 'estado', 'fecha', 'fecha_inicio',
+        'fecha_fin', 'servicio_id', 'hora_inicio', 'hora_fin', 'hoy',
         'proximas', 'esta_semana', 'con_retraso', 'minutos_retraso',
     ];
 

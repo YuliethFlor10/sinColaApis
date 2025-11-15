@@ -194,7 +194,7 @@ class AppointmentController extends Controller
                 'fecha_fin' => $fechaFin,
                 'tiempo_estimado' => $tiempoEstimado,
                 'nota' => $validated['nota'] ?? null,
-                
+
                 // 🔥 DATOS DEL CLIENTE EN LA CITA
                 'cliente_nombre' => $clienteNombre,
                 'cliente_email' => $clienteEmail,
@@ -272,7 +272,7 @@ class AppointmentController extends Controller
             if (isset($validated['fecha_cita']) || isset($validated['hora_cita'])) {
                 $fechaCita = $validated['fecha_cita'] ?? $appointment->fecha->format('Y-m-d');
                 $horaCita = $validated['hora_cita'] ?? $appointment->fecha->format('H:i');
-                
+
                 $fechaCompleta = Carbon::parse($fechaCita . ' ' . $horaCita);
                 $tiempoEstimado = $validated['tiempo_estimado'] ?? $appointment->tiempo_estimado;
                 $fechaFin = $fechaCompleta->copy()->addMinutes($tiempoEstimado);
@@ -290,7 +290,7 @@ class AppointmentController extends Controller
 
             // 🔥 MAPEAR CAMPOS DEL FRONTEND AL BACKEND
             $dataToUpdate = [];
-            
+
             // Campos de negocio
             if (isset($validated['negocios_id'])) $dataToUpdate['negocios_id'] = $validated['negocios_id'];
             if (isset($validated['servicios_id'])) $dataToUpdate['servicios_id'] = $validated['servicios_id'];
@@ -299,7 +299,7 @@ class AppointmentController extends Controller
             if (isset($validated['tiempo_estimado'])) $dataToUpdate['tiempo_estimado'] = $validated['tiempo_estimado'];
             if (isset($validated['fecha'])) $dataToUpdate['fecha'] = $validated['fecha'];
             if (isset($validated['fecha_fin'])) $dataToUpdate['fecha_fin'] = $validated['fecha_fin'];
-            
+
             // 🔥 Campos del cliente (guardar EN la cita)
             if (isset($validated['nombre'])) $dataToUpdate['cliente_nombre'] = $validated['nombre'];
             if (isset($validated['email'])) $dataToUpdate['cliente_email'] = $validated['email'];
