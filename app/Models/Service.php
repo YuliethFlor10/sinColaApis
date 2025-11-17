@@ -4,10 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Traits\HasDynamicFilters;
+use App\Traits\BelongsToTenant;
 
 class Service extends Model
 {
     use HasDynamicFilters;
+    use BelongsToTenant;
 
     public const CREATED_AT = 'creado_en';
     public const UPDATED_AT = 'actualizado_en';
@@ -26,16 +28,27 @@ class Service extends Model
         'requiere_cita_previa',
         'color_servicio',
     ];
+
+    protected $casts = [
+        'precio' => 'decimal:2',
+        'tiempo_estimado' => 'integer',
+        'tipos_id' => 'integer',
+        'estados_id' => 'integer',
+        'negocios_id' => 'integer',
+        'requiere_cita_previa' => 'boolean',
+    ];
+
     protected $allowedFilters = [
         'delNegocio', 'porEstado', 'porTipo', 'entrePrecio', 'duracionMaxima', 'requierenCita', 'buscar', 'populares',
     ];
+
     protected $allowedSorts = [
         'id', 'nombre', 'precio', 'created_at'
     ];
+
     protected $allowedIncludes = [
-        'category', 'status', 'business', 'appointments'
+        'category', 'status', 'business', 'appointments', 'assignedUsers'
     ];
-    // Relaciones
 
     public function category()
     {
@@ -56,7 +69,20 @@ class Service extends Model
     {
         return $this->hasMany(Appointment::class, 'servicios_id');
     }
-     // === SCOPES ===
+
+    /**
+     * 🔥 SIN withTimestamps() - La pivot no usa timestamps
+     */
+    public function assignedUsers()
+    {
+        return $this->belongsToMany(
+            User::class,
+            'service_user',
+            'servicios_id',
+            'usuarios_id'
+        );
+        // NO usar ->withTimestamps()
+    }
 
     public function scopeDelNegocio($query, $negocioId)
     {
@@ -109,5 +135,49 @@ class Service extends Model
                 ->orderByDesc('appointments_count')
                 ->limit($limit);
     }
-}
 
+    public function getAssignedStaffNamesAttribute()
+    {
+        if (!$this->relationLoaded('assignedUsers')) {
+            return '';
+        }
+
+        return $this->assignedUsers
+            ->map(fn($user) => trim($user->nombres . ' ' . $user->apellidos))
+            ->filter()
+            ->join(', ');
+    }
+
+    public function getAssignedStaffCountAttribute()
+    {
+        return $this->assignedUsers()->count();
+    }
+
+    public function getDuracionAttribute()
+    {
+        return $this->tiempo_estimado;
+    }
+
+    public function getDuracionFormatoAttribute()
+    {
+        if (!$this->tiempo_estimado) {
+            return 'No especificado';
+        }
+
+        $horas = floor($this->tiempo_estimado / 60);
+        $minutos = $this->tiempo_estimado % 60;
+
+        if ($horas > 0 && $minutos > 0) {
+            return "{$horas}h {$minutos}min";
+        } elseif ($horas > 0) {
+            return "{$horas}h";
+        } else {
+            return "{$minutos}min";
+        }
+    }
+
+    public function getCategoriasIdAttribute()
+    {
+        return $this->tipos_id;
+    }
+}

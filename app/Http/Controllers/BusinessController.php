@@ -3,9 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Business;
+use App\Models\User;  // 🔥 AGREGAR ESTA LÍNEA
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;  // 🔥 AGREGAR ESTA LÍNEA
 use Illuminate\Validation\Rule;
-
 class BusinessController extends Controller
 {
     // GET /businesses
@@ -107,4 +108,47 @@ class BusinessController extends Controller
 
         return response()->json(['message' => 'Negocio eliminado correctamente']);
     }
+    /**
+ * 👥 Obtener usuarios de un negocio
+ * GET /businesses/{id}/users
+ */
+public function getUsers($id)
+{
+    try {
+        Log::info("📡 Obteniendo usuarios del negocio ID: {$id}");
+
+        $business = Business::find($id);
+
+        if (!$business) {
+            return response()->json(['message' => 'Negocio no encontrado'], 404);
+        }
+
+        // Obtener usuarios con rol 3 (Empleado) o 4 (Propietario)
+        $users = User::where('negocios_id', $id)
+            ->with('role')
+            ->whereIn('roles_id', [3, 4])
+            ->where('estados_id', 1)
+            ->get()
+            ->map(function($user) {
+                return [
+                    'id' => $user->id,
+                    'nombre' => trim("{$user->nombres} {$user->apellidos}"),
+                    'email' => $user->email,
+                    'roles_id' => $user->roles_id,
+                    'rol' => [
+                        'id' => $user->role->id ?? 0,
+                        'nombre' => $user->role->nombre ?? 'Sin rol'
+                    ]
+                ];
+            });
+
+        Log::info("✅ Usuarios encontrados: " . $users->count());
+
+        return response()->json($users, 200);
+
+    } catch (\Exception $e) {
+        Log::error("❌ Error: " . $e->getMessage());
+        return response()->json(['message' => 'Error al obtener usuarios', 'error' => $e->getMessage()], 500);
+    }
+}
 }

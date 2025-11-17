@@ -2,18 +2,19 @@
 
 namespace App\Models;
 
-
-use Laravel\Sanctum\HasApiTokens;      // Import correcto para HasApiTokens
+use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
 use App\Traits\HasDynamicFilters;
+use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Support\Facades\Auth;  // 🔥 AGREGAR ESTO
 
 class User extends Authenticatable
 {
     use HasApiTokens, Notifiable, HasDynamicFilters, HasFactory;
+    use BelongsToTenant;
 
     // Permite que Laravel use 'clave' como campo de contraseña
     public function getAuthPassword()
@@ -30,7 +31,7 @@ class User extends Authenticatable
         'email',
         'nacimiento',
         'genero',
-        'clave', // Laravel espera 'password' para autenticación
+        'clave',
         'tipo_identificacion_id',
         'identificacion',
         'celular',
@@ -167,5 +168,15 @@ class User extends Authenticatable
               ->orWhere('apellidos', 'LIKE', "%{$termino}%")
               ->orWhere(DB::raw("CONCAT(nombres, ' ', apellidos)"), 'LIKE', "%{$termino}%");
         });
+    }
+
+    // 🔥 CORREGIDO
+    public function scopeDelMismoNegocio($query)
+    {
+        $user = Auth::user();
+        if ($user && $user->negocios_id) {
+            return $query->where('negocios_id', $user->negocios_id);
+        }
+        return $query;
     }
 }

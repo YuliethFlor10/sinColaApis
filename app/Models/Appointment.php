@@ -4,9 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
+use App\Traits\BelongsToTenant;
 
 class Appointment extends Model
 {
+    use BelongsToTenant;
     public const CREATED_AT = 'creado_en';
     public const UPDATED_AT = 'actualizado_en';
 

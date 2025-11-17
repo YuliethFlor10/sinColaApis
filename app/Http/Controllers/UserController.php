@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Auth;
 
 class UserController extends Controller
 {
@@ -38,6 +39,37 @@ class UserController extends Controller
 
         return response()->json($users);
     }
+    /**
+ * 🔥 NUEVO: GET /api/users/staff/available - Obtener staff para asignar a servicios
+ */
+public function getStaff()
+{
+    try {
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json(['message' => 'Usuario no autenticado'], 401);
+        }
+
+        $tenantId = $user->negocios_id;
+
+        // Obtener solo Admins (1), Empleados (3) y Propietarios (4)
+        $staff = User::with(['role'])
+            ->where('negocios_id', $tenantId)
+            ->whereIn('roles_id', [1, 3, 4])
+            ->where('estados_id', 1) // Solo activos
+            ->orderBy('nombres', 'asc')
+            ->get();
+
+        return response()->json($staff, 200);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'message' => 'Error al obtener staff',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
 
     // GET /users/{id}
     public function show($id)
@@ -138,7 +170,7 @@ class UserController extends Controller
         }
 
         // Evitar que el usuario elimine su propia cuenta
-        if (auth()->check() && $user->id === auth()->id()) {
+        if (Auth::check() && $user->id === Auth::id()) {
             return response()->json([
                 'message' => 'No puedes eliminar tu propio usuario mientras estás autenticado'
             ], 403);
@@ -170,4 +202,35 @@ class UserController extends Controller
         // Verificar si el nombre del rol es "Cliente" (case-insensitive)
         return strtolower($rol->nombre) === 'cliente';
     }
+    /**
+ * 🔥 NUEVO: PATCH /api/users/{id}/status - Cambiar estado del usuario
+ */
+public function changeStatus(Request $request, $id)
+{
+    try {
+        $user = User::find($id);
+
+        if (!$user) {
+            return response()->json(['message' => 'Usuario no encontrado'], 404);
+        }
+
+        $validated = $request->validate([
+            'estados_id' => 'required|exists:statuses,id'
+        ]);
+
+        $user->update(['estados_id' => $validated['estados_id']]);
+        $user->load(['status']);
+
+        return response()->json([
+            'message' => 'Estado actualizado correctamente',
+            'user' => $user
+        ], 200);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'message' => 'Error al cambiar el estado',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
 }

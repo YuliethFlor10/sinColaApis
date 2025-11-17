@@ -3,10 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Traits\HasDynamicFilters;
 use Carbon\Carbon;
 
 class Subscription extends Model
 {
+    use HasDynamicFilters;
+
     public const CREATED_AT = 'creado_en';
     public const UPDATED_AT = 'actualizado_en';
 
@@ -33,7 +36,21 @@ class Subscription extends Model
         'precio_pagado' => 'decimal:2',
     ];
 
-    // ==================== RELACIONES ====================
+    protected $allowedFilters = [
+        'delUsuario', 'delNegocio', 'delPlan', 'activas', 'porEstado', 'proximasAVencer', 'vencidas'
+    ];
+
+    protected $allowedSorts = [
+        'id', 'fecha_inicio', 'fecha_fin', 'estado', 'created_at'
+    ];
+
+    protected $allowedIncludes = [
+        'user', 'business', 'plan'
+    ];
+
+    // ============================================
+    // RELACIONES
+    // ============================================
 
     public function user()
     {
@@ -50,36 +67,9 @@ class Subscription extends Model
         return $this->belongsTo(Plan::class, 'planes_id');
     }
 
-    // ==================== SCOPES ====================
-
-    public function scopeActivas($query)
-    {
-        return $query->where('estado', 'activa')
-                     ->where('fecha_fin', '>=', now()->format('Y-m-d'));
-    }
-
-    public function scopeCanceladas($query)
-    {
-        return $query->where('estado', 'cancelada');
-    }
-
-    public function scopeVencidas($query)
-    {
-        return $query->where('estado', 'vencida')
-                     ->orWhere(function ($q) {
-                         $q->where('estado', 'activa')
-                           ->where('fecha_fin', '<', now()->format('Y-m-d'));
-                     });
-    }
-
-    public function scopeProximasAVencer($query)
-    {
-        $hoy = now()->format('Y-m-d');
-        $proximaSemana = now()->addDays(7)->format('Y-m-d');
-
-        return $query->where('estado', 'activa')
-                     ->whereBetween('fecha_fin', [$hoy, $proximaSemana]);
-    }
+    // ============================================
+    // SCOPES
+    // ============================================
 
     public function scopeDelUsuario($query, $usuarioId)
     {
@@ -96,73 +86,84 @@ class Subscription extends Model
         return $query->where('planes_id', $planId);
     }
 
-    // ==================== MÉTODOS ÚTILES ====================
-
-    public function isActiva(): bool
+    public function scopeActivas($query)
     {
-        return $this->estado === 'activa' &&
-               $this->fecha_fin >= now()->format('Y-m-d');
+        return $query->where('estado', 'activa')
+                    ->where('fecha_fin', '>=', now());
     }
 
-    public function isProximaAVencer(): bool
+    public function scopePorEstado($query, $estado)
     {
-        if (!$this->isActiva()) {
-            return false;
-        }
-
-        $diasRestantes = now()->diffInDays($this->fecha_fin);
-        return $diasRestantes <= 7 && $diasRestantes > 0;
+        return $query->where('estado', $estado);
     }
 
-    public function getDiasRestantes(): int
+    public function scopeProximasAVencer($query, $dias = 7)
     {
-        return max(0, now()->diffInDays($this->fecha_fin, false));
+        return $query->where('estado', 'activa')
+                    ->whereBetween('fecha_fin', [
+                        now(),
+                        now()->addDays($dias)
+                    ]);
     }
 
-    public function getPorcentajeNotificacionesUsadas(): float
+    public function scopeVencidas($query)
     {
-        if (!$this->notificaciones_totales || $this->notificaciones_totales === -1) {
+        return $query->where('fecha_fin', '<', now())
+                    ->where('estado', 'activa');
+    }
+
+    // ============================================
+    // MÉTODOS AUXILIARES
+    // ============================================
+
+    /**
+     * Verificar si la suscripción está activa
+     */
+    public function estaActiva()
+    {
+        return $this->estado === 'activa' && $this->fecha_fin >= now();
+    }
+
+    /**
+     * Obtener días restantes
+     */
+    public function diasRestantes()
+    {
+        if ($this->fecha_fin < now()) {
             return 0;
         }
 
-        return ($this->notificaciones_usadas / $this->notificaciones_totales) * 100;
+        return now()->diffInDays($this->fecha_fin);
     }
 
-    public function getNotificacionesRestantes(): int|string
+    /**
+     * Renovar suscripción
+     */
+    public function renovar($meses = 1, $precioNuevo = null)
     {
-        if ($this->notificaciones_totales === -1 || $this->notificaciones_totales === null) {
-            return 'ilimitadas';
+        $this->fecha_inicio = now();
+        $this->fecha_fin = now()->addMonths($meses);
+        $this->estado = 'activa';
+
+        if ($precioNuevo) {
+            $this->precio_pagado = $precioNuevo;
         }
 
-        return $this->notificaciones_totales - $this->notificaciones_usadas;
+        $this->save();
+
+        return $this;
     }
 
-    public function incrementarNotificacionesUsadas($cantidad = 1): void
+    /**
+     * Cancelar suscripción
+     */
+    public function cancelar($razon = null)
     {
-        if ($this->notificaciones_totales !== -1 && $this->notificaciones_totales !== null) {
-            $this->notificaciones_usadas += $cantidad;
-            $this->save();
-        }
-    }
+        $this->estado = 'cancelada';
+        $this->fecha_cancelacion = now();
+        $this->razon_cancelacion = $razon;
+        $this->save();
 
-    public function cancelar($razon = null): void
-    {
-        $this->update([
-            'estado' => 'cancelada',
-            'fecha_cancelacion' => now(),
-            'razon_cancelacion' => $razon,
-        ]);
-    }
-
-    public function renovar(int $diasPeriodo = 30): void
-    {
-        $this->update([
-            'fecha_inicio' => now(),
-            'fecha_fin' => now()->addDays($diasPeriodo),
-            'estado' => 'activa',
-            'notificaciones_usadas' => 0,
-            'fecha_cancelacion' => null,
-            'razon_cancelacion' => null,
-        ]);
+        return $this;
     }
 }

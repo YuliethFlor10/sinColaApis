@@ -6,6 +6,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
+use App\Models\Business;
+use App\Models\Subscription;
+use App\Models\Plan;
 
 class AuthController extends Controller
 {
@@ -24,7 +27,6 @@ class AuthController extends Controller
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
-        // ✅ IMPORTANTE: Devolver datos completos del usuario
         return response()->json([
             'access_token' => $token,
             'token_type' => 'Bearer',
@@ -41,15 +43,14 @@ class AuthController extends Controller
                 'estados_id' => $user->estados_id,
                 'roles_id' => $user->roles_id,
                 'negocios_id' => $user->negocios_id,
-                // ✅ Nombre completo para mostrar
                 'nombre_completo' => trim($user->nombres . ' ' . $user->apellidos),
             ]
         ]);
     }
 
-    // ... resto de tus métodos register y logout sin cambios
-
-
+    /**
+     * 🔥 REGISTRO CON CREACIÓN AUTOMÁTICA DE NEGOCIO Y SUSCRIPCIÓN
+     */
     public function register(Request $request)
     {
         try {
@@ -59,29 +60,65 @@ class AuthController extends Controller
                 'email' => 'required|email|unique:users,email',
                 'clave' => 'required|string|min:6',
                 'celular' => 'required|string|max:20',
-                'telefono' => 'required|string|max:20',
+                'telefono' => 'nullable|string|max:20',
                 'direccion' => 'required|string|max:255',
                 'identificacion' => 'required|string|max:50',
-                'tipo_identificacion_id' => 'required|integer',
-                'estados_id' => 'nullable|integer',
-                'roles_id' => 'nullable|integer',
-                'negocios_id' => 'nullable|integer',
+                'tipo_identificacion_id' => 'required|integer|exists:categories,id',
+
+                // 🔥 DATOS DEL NEGOCIO
+                'nombre_negocio' => 'required|string|max:150',
+                'nit_negocio' => 'required|string|max:20|unique:businesses,nit',
+                'tipo_servicio_id' => 'required|integer|exists:categories,id',
+                'telefono_negocio' => 'nullable|string|max:20',
+                'direccion_negocio' => 'nullable|string|max:255',
             ]);
 
-            // Crear el usuario - ASEGURARSE de que clave esté hasheada
+            // 🔥 PASO 1: Crear el NEGOCIO primero
+            $planPorDefecto = Plan::where('nombre', 'Plan Prueba')->first();
+            if (!$planPorDefecto) {
+                $planPorDefecto = Plan::first(); // Fallback al primer plan
+            }
+
+            $business = Business::create([
+                'nit' => $validated['nit_negocio'],
+                'nombre' => $validated['nombre_negocio'],
+                'direccion' => $validated['direccion_negocio'] ?? null,
+                'telefono' => $validated['telefono_negocio'] ?? $validated['celular'],
+                'estados_id' => 1, // Activo
+                'tipo_servicio_id' => $validated['tipo_servicio_id'],
+                'planes_id' => $planPorDefecto->id,
+            ]);
+
+            // 🔥 PASO 2: Crear el USUARIO PROPIETARIO con el negocio asignado
             $user = User::create([
                 'nombres' => $validated['nombres'],
                 'apellidos' => $validated['apellidos'],
                 'email' => $validated['email'],
-                'clave' => Hash::make($validated['clave']), // IMPORTANTE: hashear la contraseña
+                'clave' => Hash::make($validated['clave']),
                 'celular' => $validated['celular'],
-                'telefono' => $validated['telefono'],
+                'telefono' => $validated['telefono'] ?? null,
                 'direccion' => $validated['direccion'],
                 'identificacion' => $validated['identificacion'],
                 'tipo_identificacion_id' => $validated['tipo_identificacion_id'],
-                'estados_id' => $validated['estados_id'] ?? 1,
-                'roles_id' => $validated['roles_id'] ?? 2,
-                'negocios_id' => $validated['negocios_id'] ?? 1,
+                'estados_id' => 1, // Activo
+                'roles_id' => 4, // 🔥 Propietario (rol ID 4)
+                'negocios_id' => $business->id, // 🔥 ASIGNAR EL NEGOCIO
+                'terminos_condiciones' => true,
+            ]);
+
+            // 🔥 PASO 3: Crear SUSCRIPCIÓN automática (Plan Prueba - 30 días)
+            $subscription = Subscription::create([
+                'usuarios_id' => $user->id,
+                'negocios_id' => $business->id,
+                'planes_id' => $planPorDefecto->id,
+                'fecha_inicio' => now(),
+                'fecha_fin' => now()->addMonth(), // 🔥 1 mes de prueba
+                'estado' => 'activa',
+                'precio_pagado' => 0.00, // Prueba gratuita
+                'metodo_pago' => 'gratuito',
+                'transaccion_id' => 'REG-' . $user->id . '-' . now()->timestamp,
+                'notificaciones_usadas' => 0,
+                'notificaciones_totales' => 50, // Plan Prueba
             ]);
 
             // Crear token automáticamente
@@ -89,9 +126,11 @@ class AuthController extends Controller
 
             return response()->json([
                 'user' => $user,
+                'business' => $business,
+                'subscription' => $subscription,
                 'access_token' => $token,
                 'token_type' => 'Bearer',
-                'message' => 'Usuario registrado exitosamente'
+                'message' => 'Usuario registrado exitosamente con plan de prueba por 30 días'
             ], 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -113,6 +152,62 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Sesión cerrada exitosamente'
+        ]);
+    }
+
+    /**
+     * 🔥 OBTENER DATOS DEL USUARIO AUTENTICADO + SUSCRIPCIÓN
+     * GET /api/me
+     */
+    public function me(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json(['message' => 'Usuario no autenticado'], 401);
+        }
+
+        $user->load(['business', 'role', 'status']);
+
+        // Obtener suscripción activa del negocio
+        $subscription = null;
+        if ($user->negocios_id) {
+            $subscription = Subscription::where('negocios_id', $user->negocios_id)
+                ->where('estado', 'activa')
+                ->where('fecha_fin', '>=', now())
+                ->with('plan')
+                ->first();
+        }
+
+        return response()->json([
+            'user' => [
+                'id' => $user->id,
+                'nombres' => $user->nombres,
+                'apellidos' => $user->apellidos,
+                'email' => $user->email,
+                'celular' => $user->celular,
+                'telefono' => $user->telefono,
+                'direccion' => $user->direccion,
+                'identificacion' => $user->identificacion,
+                'tipo_identificacion_id' => $user->tipo_identificacion_id,
+                'estados_id' => $user->estados_id,
+                'roles_id' => $user->roles_id,
+                'negocios_id' => $user->negocios_id,
+                'nombre_completo' => trim($user->nombres . ' ' . $user->apellidos),
+                'business' => $user->business,
+                'role' => $user->role,
+                'status' => $user->status,
+            ],
+            'subscription' => $subscription ? [
+                'id' => $subscription->id,
+                'plan' => $subscription->plan,
+                'fecha_inicio' => $subscription->fecha_inicio,
+                'fecha_fin' => $subscription->fecha_fin,
+                'dias_restantes' => $subscription->diasRestantes(),
+                'estado' => $subscription->estado,
+                'notificaciones_usadas' => $subscription->notificaciones_usadas,
+                'notificaciones_totales' => $subscription->notificaciones_totales,
+            ] : null
         ]);
     }
 }

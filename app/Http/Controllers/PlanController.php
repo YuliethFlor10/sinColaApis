@@ -7,22 +7,25 @@ use Illuminate\Http\Request;
 
 class PlanController extends Controller
 {
-    // GET /plans
+    /**
+     * GET /plans - 🔥 Todos los planes (públicos, no requieren tenancy)
+     */
     public function index(Request $request)
-{
-    $planes = Plan::filtrar($request->all())->get();
-    if ($planes->isEmpty()) {
-        return response()->json(['message' => 'No se encuentra ningún plan con los filtros aplicados.'], 404);
-    }
-    return response()->json($planes);
-}
-    /*public function index()
     {
-        $plans = Plan::with('status')->get();
-        return response()->json($plans);
-    }*/
+        $planes = Plan::with('status')
+            ->filtrar($request->all())
+            ->get();
 
-    // GET /plans/{id}
+        if ($planes->isEmpty()) {
+            return response()->json(['message' => 'No se encuentra ningún plan con los filtros aplicados.'], 404);
+        }
+
+        return response()->json($planes);
+    }
+
+    /**
+     * GET /plans/{id}
+     */
     public function show($id)
     {
         $plan = Plan::with('status')->find($id);
@@ -34,7 +37,9 @@ class PlanController extends Controller
         return response()->json($plan);
     }
 
-    // POST /plans
+    /**
+     * POST /plans - Solo Admin General puede crear planes
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -49,7 +54,9 @@ class PlanController extends Controller
         return response()->json($plan, 201);
     }
 
-    // PUT /plans/{id}
+    /**
+     * PUT /plans/{id}
+     */
     public function update(Request $request, $id)
     {
         $plan = Plan::find($id);
@@ -70,7 +77,9 @@ class PlanController extends Controller
         return response()->json($plan);
     }
 
-    // DELETE /plans/{id}
+    /**
+     * DELETE /plans/{id}
+     */
     public function destroy($id)
     {
         $plan = Plan::find($id);
