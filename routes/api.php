@@ -59,7 +59,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/{id}', [UserController::class, 'update']);
         Route::delete('/{id}', [UserController::class, 'destroy']);
         Route::patch('/{id}/status', [UserController::class, 'changeStatus']);
-        Route::get('users/staff/available', [UserController::class, 'getStaff']);
     });
 
     // 🛠️ SERVICIOS (con tenancy)
@@ -97,5 +96,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}', [BusinessController::class, 'show']);
         Route::put('/{id}', [BusinessController::class, 'update']);
         Route::delete('/{id}', [BusinessController::class, 'destroy']);
+        
+        // 🔥 Obtener personal operativo (empleados/admin) de un negocio
+        Route::get('/{id}/users', [BusinessController::class, 'getUsers']);
+        Route::get('/{id}/staff', [BusinessController::class, 'getStaff']); // Alias más específico
     });
 });

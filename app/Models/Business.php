@@ -24,16 +24,22 @@ class Business extends Model
         'tipo_servicio_id',
         'planes_id',
     ];
+    
     protected $allowedFilters = [
         'estado', 'tipo_servicio', 'plan', 'search', 'con_servicios', 'atiende_hoy', 'con_disponibilidad', 'fecha_disponibilidad',
     ];
+    
     protected $allowedSorts = [
         'id', 'nombre', 'nit', 'created_at'
     ];
+    
     protected $allowedIncludes = [
         'status', 'serviceType', 'plan', 'services', 'agendas', 'appointments', 'users', 'customization'
     ];
-    // Relaciones
+
+    // ========================================
+    // RELACIONES
+    // ========================================
 
     public function status()
     {
@@ -69,12 +75,26 @@ class Business extends Model
     {
         return $this->hasMany(User::class, 'negocios_id');
     }
-    public function customization(): HasOne
+
+    /**
+     * 🔥 NUEVO: Relación para obtener solo personal operativo (Admins y Empleados)
+     * Excluye Propietarios y Clientes
+     */
+    public function staff()
     {
-    return $this->hasOne(Customization::class, 'negocios_id');
+        return $this->hasMany(User::class, 'negocios_id')
+            ->whereIn('roles_id', [1, 3]) // Solo Admin (1) y Empleado (3)
+            ->where('estados_id', 1); // Solo activos
     }
 
-    // === SCOPES PRINCIPALES ===
+    public function customization(): HasOne
+    {
+        return $this->hasOne(Customization::class, 'negocios_id');
+    }
+
+    // ========================================
+    // SCOPES PRINCIPALES
+    // ========================================
 
     /**
      * Scope: Negocios activos
@@ -106,11 +126,11 @@ class Business extends Model
             $q->whereRaw('LOWER(nombre) = ?', [$estadoNormalizado]);
         });
     }
-    public function scopeEstado($query, $valor)
-{
-    return $this->scopeConEstado($query, $valor);
-}
 
+    public function scopeEstado($query, $valor)
+    {
+        return $this->scopeConEstado($query, $valor);
+    }
 
     /**
      * Scope: Negocios por tipo de servicio
@@ -119,15 +139,14 @@ class Business extends Model
      * Composición: Ideal para directorios categorizados
      */
     public function scopeTipoServicio($query, $tipoServicio = null)
-{
-    if ($tipoServicio) {
-        return $query->whereHas('serviceType', function ($q) use ($tipoServicio) {
-            $q->where('nombre', $tipoServicio);
-        });
+    {
+        if ($tipoServicio) {
+            return $query->whereHas('serviceType', function ($q) use ($tipoServicio) {
+                $q->where('nombre', $tipoServicio);
+            });
+        }
+        return $query;
     }
-    return $query;
-}
-
 
     /**
      * Scope: Negocios por plan
@@ -135,25 +154,24 @@ class Business extends Model
      * Ventaja: Filtros administrativos y de facturación
      * Composición: Útil para reportes de ingresos
      */
-
-
-public function scopePlan($query, $plan)
-{
-    // Normaliza el nombre del plan eliminando tildes y pasando a minúsculas
-    $planNormalizado = mb_strtolower(
-        str_replace(
-            ['á','é','í','ó','ú','Á','É','Í','Ó','Ú','ñ','Ñ'],
-            ['a','e','i','o','u','a','e','i','o','u','n','n'],
-            $plan
-        )
-    );
-    return $query->whereHas('plan', function ($q) use ($planNormalizado) {
-        $q->whereRaw(
-            "LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(nombre, 'á', 'a'), 'é', 'e'), 'í', 'i'), 'ó', 'o'), 'ú', 'u'), 'Á', 'a'), 'É', 'e'), 'Í', 'i'), 'Ó', 'o'), 'Ú', 'u'), 'ñ', 'n'), 'Ñ', 'n')) = ?",
-            [$planNormalizado]
+    public function scopePlan($query, $plan)
+    {
+        // Normaliza el nombre del plan eliminando tildes y pasando a minúsculas
+        $planNormalizado = mb_strtolower(
+            str_replace(
+                ['á','é','í','ó','ú','Á','É','Í','Ó','Ú','ñ','Ñ'],
+                ['a','e','i','o','u','a','e','i','o','u','n','n'],
+                $plan
+            )
         );
-    });
-}
+        return $query->whereHas('plan', function ($q) use ($planNormalizado) {
+            $q->whereRaw(
+                "LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(nombre, 'á', 'a'), 'é', 'e'), 'í', 'i'), 'ó', 'o'), 'ú', 'u'), 'Á', 'a'), 'É', 'e'), 'Í', 'i'), 'Ó', 'o'), 'Ú', 'u'), 'ñ', 'n'), 'Ñ', 'n')) = ?",
+                [$planNormalizado]
+            );
+        });
+    }
+
     public function scopeConPlan($query, $plan)
     {
         if (is_numeric($plan)) {
