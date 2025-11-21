@@ -39,37 +39,90 @@ class UserController extends Controller
 
         return response()->json($users);
     }
+
     /**
- * 🔥 NUEVO: GET /api/users/staff/available - Obtener staff para asignar a servicios
- */
-public function getStaff()
-{
-    try {
-        $user = Auth::user();
+     * 🔥 NUEVO: GET /api/users/staff/available - Obtener staff para asignar a servicios
+     */
+    public function getStaff()
+    {
+        try {
+            $user = Auth::user();
 
-        if (!$user) {
-            return response()->json(['message' => 'Usuario no autenticado'], 401);
+            if (!$user) {
+                return response()->json(['message' => 'Usuario no autenticado'], 401);
+            }
+
+            $tenantId = $user->negocios_id;
+
+            // Obtener solo Admins (1), Empleados (3) y Propietarios (4)
+            $staff = User::with(['role'])
+                ->where('negocios_id', $tenantId)
+                ->whereIn('roles_id', [1, 3, 4])
+                ->where('estados_id', 1) // Solo activos
+                ->orderBy('nombres', 'asc')
+                ->get();
+
+            return response()->json($staff, 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error al obtener staff',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        $tenantId = $user->negocios_id;
-
-        // Obtener solo Admins (1), Empleados (3) y Propietarios (4)
-        $staff = User::with(['role'])
-            ->where('negocios_id', $tenantId)
-            ->whereIn('roles_id', [1, 3, 4])
-            ->where('estados_id', 1) // Solo activos
-            ->orderBy('nombres', 'asc')
-            ->get();
-
-        return response()->json($staff, 200);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'message' => 'Error al obtener staff',
-            'error' => $e->getMessage()
-        ], 500);
     }
-}
+
+    /**
+     * 🔥 NUEVO: GET /api/users/for-reports - Obtener usuarios para el dropdown de informes
+     * Formato compatible con el frontend Angular
+     */
+    public function getUsersForReports()
+    {
+        try {
+            $user = Auth::user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'data' => [],
+                    'message' => 'Usuario no autenticado'
+                ], 401);
+            }
+
+            $tenantId = $user->negocios_id;
+
+            // Obtener solo Admins (1), Empleados (3) y Propietarios (4) del mismo negocio
+            $users = User::with(['role'])
+                ->where('negocios_id', $tenantId)
+                ->whereIn('roles_id', [1, 3, 4]) // Admin, Empleado, Propietario
+                ->where('estados_id', 1) // Solo activos
+                ->orderBy('nombres', 'asc')
+                ->get()
+                ->map(function ($user) {
+                    return [
+                        'id' => $user->id,
+                        'name' => $user->nombres . ' ' . $user->apellidos,
+                        'email' => $user->email,
+                        'role' => $user->role ? $user->role->nombre : 'Sin rol',
+                        'created_at' => $user->creado_en,
+                        'updated_at' => $user->actualizado_en
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => $users,
+                'message' => 'Usuarios obtenidos correctamente'
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'data' => [],
+                'message' => 'Error al obtener usuarios: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 
     // GET /users/{id}
     public function show($id)
@@ -202,35 +255,36 @@ public function getStaff()
         // Verificar si el nombre del rol es "Cliente" (case-insensitive)
         return strtolower($rol->nombre) === 'cliente';
     }
+
     /**
- * 🔥 NUEVO: PATCH /api/users/{id}/status - Cambiar estado del usuario
- */
-public function changeStatus(Request $request, $id)
-{
-    try {
-        $user = User::find($id);
+     * 🔥 NUEVO: PATCH /api/users/{id}/status - Cambiar estado del usuario
+     */
+    public function changeStatus(Request $request, $id)
+    {
+        try {
+            $user = User::find($id);
 
-        if (!$user) {
-            return response()->json(['message' => 'Usuario no encontrado'], 404);
+            if (!$user) {
+                return response()->json(['message' => 'Usuario no encontrado'], 404);
+            }
+
+            $validated = $request->validate([
+                'estados_id' => 'required|exists:statuses,id'
+            ]);
+
+            $user->update(['estados_id' => $validated['estados_id']]);
+            $user->load(['status']);
+
+            return response()->json([
+                'message' => 'Estado actualizado correctamente',
+                'user' => $user
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error al cambiar el estado',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        $validated = $request->validate([
-            'estados_id' => 'required|exists:statuses,id'
-        ]);
-
-        $user->update(['estados_id' => $validated['estados_id']]);
-        $user->load(['status']);
-
-        return response()->json([
-            'message' => 'Estado actualizado correctamente',
-            'user' => $user
-        ], 200);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'message' => 'Error al cambiar el estado',
-            'error' => $e->getMessage()
-        ], 500);
     }
-}
 }

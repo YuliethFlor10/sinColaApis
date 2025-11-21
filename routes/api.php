@@ -53,6 +53,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('users')->group(function () {
         Route::get('/', [UserController::class, 'index']);
         Route::get('/staff/available', [UserController::class, 'getStaff']);
+        
+        // 🔥 NUEVO - Para el dropdown de informes en Angular
+        Route::get('/for-reports', [UserController::class, 'getUsersForReports']);
 
         Route::get('/{id}', [UserController::class, 'show']);
         Route::post('/', [UserController::class, 'store']);
