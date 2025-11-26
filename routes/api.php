@@ -17,6 +17,7 @@ use App\Http\Controllers\BusinessController;
 // ========================================
 // RUTAS PÚBLICAS (Sin autenticación)
 // ========================================
+Route::apiResource('services', ServiceController::class);
 
 // Autenticación
 Route::post('/register', [AuthController::class, 'register']);
@@ -62,7 +63,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // 🛠️ SERVICIOS (con tenancy)
-    Route::apiResource('services', ServiceController::class);
+
 
     // 🔥 NUEVO: Asignar empleados a servicios
     Route::post('services/{id}/assign-staff', [ServiceController::class, 'assignStaff']);
@@ -96,7 +97,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}', [BusinessController::class, 'show']);
         Route::put('/{id}', [BusinessController::class, 'update']);
         Route::delete('/{id}', [BusinessController::class, 'destroy']);
-        
+
         // 🔥 Obtener personal operativo (empleados/admin) de un negocio
         Route::get('/{id}/users', [BusinessController::class, 'getUsers']);
         Route::get('/{id}/staff', [BusinessController::class, 'getStaff']); // Alias más específico

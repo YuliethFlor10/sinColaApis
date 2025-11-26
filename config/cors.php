@@ -1,23 +1,34 @@
 <?php
 
 return [
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cross-Origin Resource Sharing (CORS) Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Here you may configure your settings for cross-origin resource sharing
+    | or "CORS". This determines what cross-origin operations may execute
+    | in web browsers. You are free to adjust these settings as needed.
+    |
+    | To learn more: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+    |
+    */
+
+    'paths' => ['api/*', 'v1/*', 'sanctum/csrf-cookie'],
+
     'allowed_methods' => ['*'],
-    'allowed_origins' => [
-        'http://localhost:4200',
-        'http://localhost:8100',
-        'capacitor://localhost',
-        'ionic://localhost',
-        'http://localhost',
-        'http://10.7.218.154:8000',
-        'http://10.0.2.2:8000',
-        env('FRONTEND_URL', 'http://localhost:4200'),
-    ],
-    'allowed_origins_patterns' => [
-        '/^https?:\/\/.*\.railway\.app$/',  // 🔥 Permitir todos los subdominios de Railway
-    ],
+
+    'allowed_origins' => ['*'],
+
+    'allowed_origins_patterns' => [],
+
     'allowed_headers' => ['*'],
+
     'exposed_headers' => [],
+
     'max_age' => 0,
+
     'supports_credentials' => true,
+
 ];
