@@ -64,38 +64,65 @@ class ServiceController extends Controller
 
     /**
      * POST /api/services - Crear nuevo servicio
-     * 🔥 FIX: Acepta AMBOS 'duracion' y 'tiempo_estimado'
+     * 🔥 FIX: Validación robusta de autenticación y negocios_id
      */
     public function store(Request $request)
     {
         try {
+            // 🔥 VALIDACIÓN DE AUTENTICACIÓN
             $user = Auth::user();
+
+            if (!$user) {
+                Log::error('❌ Usuario no autenticado intentando crear servicio');
+                return response()->json([
+                    'message' => 'No autenticado. Debes iniciar sesión.',
+                    'error' => 'Usuario no autenticado'
+                ], 401);
+            }
+
+            // 🔥 VALIDACIÓN DE NEGOCIO
             $tenantId = $user->negocios_id;
 
-            // 🔥 LOG para debugging
-            Log::info('📥 Datos recibidos en store:', $request->all());
+            if (!$tenantId) {
+                Log::error('❌ Usuario sin negocio asignado:', [
+                    'user_id' => $user->id,
+                    'user_email' => $user->email
+                ]);
+                return response()->json([
+                    'message' => 'Usuario sin negocio asignado. Contacta al administrador.',
+                    'error' => 'negocios_id es null'
+                ], 403);
+            }
 
-            // 🔥 VALIDACIÓN: Acepta TANTO 'duracion' COMO 'tiempo_estimado'
+            // 🔥 PRIORIDAD: Si el request trae negocios_id, úsalo (de lo contrario usa el del usuario)
+            $negocioIdFinal = $request->input('negocios_id', $tenantId);
+
+            Log::info('📥 Datos recibidos en store:', [
+                'request_data' => $request->all(),
+                'user_id' => $user->id,
+                'user_negocios_id' => $tenantId,
+                'negocio_final' => $negocioIdFinal
+            ]);
+
+            // 🔥 VALIDACIÓN
             $validated = $request->validate([
                 'nombre' => 'required|string|max:255',
                 'descripcion' => 'nullable|string',
                 'precio' => 'required|numeric|min:0',
-                // 🔥 Acepta ambos campos de duración
                 'duracion' => 'nullable|integer|min:1',
                 'tiempo_estimado' => 'nullable|integer|min:1',
-                // Acepta todos los formatos de categoría
                 'categoria' => 'nullable|exists:categories,id',
                 'categorias_id' => 'nullable|exists:categories,id',
                 'tipos_id' => 'nullable|exists:categories,id',
-                // Estados
                 'estado' => 'nullable|string|in:activo,inactivo',
                 'estados_id' => 'nullable|exists:statuses,id',
-                // Usuarios asignados
+                'negocios_id' => 'nullable|exists:businesses,id', // 🔥 ACEPTA negocios_id del request
                 'usuarios_asignados' => 'nullable|array',
-                'usuarios_asignados.*' => 'exists:users,id'
+                'usuarios_asignados.*' => 'exists:users,id',
+                'usuario_id' => 'nullable|exists:users,id' // 🔥 ACEPTA usuario_id del request
             ]);
 
-            // 🔥 VALIDACIÓN MANUAL: Al menos uno de los dos campos de duración debe existir
+            // 🔥 Determinar duración
             $duracion = $validated['duracion'] ?? $validated['tiempo_estimado'] ?? null;
 
             if (!$duracion) {
@@ -109,13 +136,13 @@ class ServiceController extends Controller
 
             Log::info('✅ Validación exitosa');
 
-            // 🔥 Determinar el ID de categoría
+            // 🔥 Determinar categoría
             $categoriaId = $validated['categorias_id']
                 ?? $validated['tipos_id']
                 ?? $validated['categoria']
                 ?? null;
 
-            // 🔥 Determinar el ID de estado
+            // 🔥 Determinar estado
             $estadoId = $validated['estados_id'] ?? null;
 
             if (!$estadoId && isset($validated['estado'])) {
@@ -124,10 +151,15 @@ class ServiceController extends Controller
 
             $estadoId = $estadoId ?? 1;
 
+            // 🔥 Determinar usuario_id (si viene en el request)
+            $usuarioId = $validated['usuario_id'] ?? null;
+
             Log::info('🔧 Datos procesados:', [
                 'categoriaId' => $categoriaId,
                 'estadoId' => $estadoId,
-                'duracion' => $duracion
+                'duracion' => $duracion,
+                'negocio_id' => $negocioIdFinal,
+                'usuario_id' => $usuarioId
             ]);
 
             // 🔥 Crear servicio
@@ -135,21 +167,23 @@ class ServiceController extends Controller
                 'nombre' => $validated['nombre'],
                 'descripcion' => $validated['descripcion'] ?? null,
                 'precio' => $validated['precio'],
-                'tiempo_estimado' => $duracion, // 🔥 Usa el valor que exista
-                'negocios_id' => $tenantId,
+                'tiempo_estimado' => $duracion,
+                'negocios_id' => $negocioIdFinal, // 🔥 USA EL VALOR CORRECTO
                 'tipos_id' => $categoriaId,
-                'estados_id' => $estadoId
+                'estados_id' => $estadoId,
+                'usuario_id' => $usuarioId // 🔥 ASIGNA usuario_id si existe
             ]);
 
             Log::info('✅ Servicio creado en BD:', [
                 'id' => $service->id,
-                'nombre' => $service->nombre
+                'nombre' => $service->nombre,
+                'negocios_id' => $service->negocios_id
             ]);
 
             // Asignar usuarios si se proporcionaron
             if (!empty($validated['usuarios_asignados'])) {
                 $validUsers = User::whereIn('id', $validated['usuarios_asignados'])
-                    ->where('negocios_id', $tenantId)
+                    ->where('negocios_id', $negocioIdFinal)
                     ->whereIn('roles_id', [1, 3, 4])
                     ->pluck('id');
 
@@ -182,7 +216,11 @@ class ServiceController extends Controller
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString(),
-                'input' => $request->all()
+                'input' => $request->all(),
+                'user' => Auth::user() ? [
+                    'id' => Auth::user()->id,
+                    'negocios_id' => Auth::user()->negocios_id
+                ] : 'NO AUTH'
             ]);
 
             return response()->json([
@@ -198,7 +236,6 @@ class ServiceController extends Controller
 
     /**
      * PUT /api/services/{id} - Actualizar servicio
-     * 🔥 FIX: Acepta AMBOS 'duracion' y 'tiempo_estimado'
      */
     public function update(Request $request, $id)
     {
@@ -214,22 +251,17 @@ class ServiceController extends Controller
                 'data' => $request->all()
             ]);
 
-            // 🔥 Validación flexible
             $validated = $request->validate([
                 'nombre' => 'sometimes|string|max:255',
                 'descripcion' => 'nullable|string',
                 'precio' => 'sometimes|numeric|min:0',
-                // 🔥 Acepta ambos
                 'duracion' => 'nullable|integer|min:1',
                 'tiempo_estimado' => 'nullable|integer|min:1',
-                // Categorías
                 'categoria' => 'nullable|exists:categories,id',
                 'categorias_id' => 'nullable|exists:categories,id',
                 'tipos_id' => 'nullable|exists:categories,id',
-                // Estados
                 'estado' => 'nullable|string|in:activo,inactivo',
                 'estados_id' => 'nullable|exists:statuses,id',
-                // Usuarios
                 'usuarios_asignados' => 'nullable|array',
                 'usuarios_asignados.*' => 'exists:users,id'
             ]);
@@ -248,14 +280,12 @@ class ServiceController extends Controller
                 $updateData['precio'] = $validated['precio'];
             }
 
-            // 🔥 Manejar duración (cualquier formato)
             if (isset($validated['duracion'])) {
                 $updateData['tiempo_estimado'] = $validated['duracion'];
             } elseif (isset($validated['tiempo_estimado'])) {
                 $updateData['tiempo_estimado'] = $validated['tiempo_estimado'];
             }
 
-            // 🔥 Manejar categoría
             if (isset($validated['categorias_id'])) {
                 $updateData['tipos_id'] = $validated['categorias_id'];
             } elseif (isset($validated['tipos_id'])) {
@@ -264,7 +294,6 @@ class ServiceController extends Controller
                 $updateData['tipos_id'] = $validated['categoria'];
             }
 
-            // 🔥 Manejar estado
             if (isset($validated['estados_id'])) {
                 $updateData['estados_id'] = $validated['estados_id'];
             } elseif (isset($validated['estado'])) {
