@@ -65,9 +65,12 @@ class AppointmentController extends Controller
  * POST /api/appointments - Soporta rutas públicas y protegidas
  */
 public function store(Request $request)
+/**
+ * POST /api/appointments - Soporta rutas públicas y protegidas
+ * 🔥 SIEMPRE FUNCIONA - Reutiliza usuarios existentes por email
+ */
 {
     try {
-        // 🔥 Detectar si es ruta pública o protegida
         $user = Auth::user();
         $esPublico = !$user;
 
@@ -95,53 +98,26 @@ public function store(Request $request)
             'tiempo_estimado' => 'nullable|integer'
         ];
 
-        // Si es público, negocios_id es REQUERIDO
         if ($esPublico) {
             $rules['negocios_id'] = 'required|exists:businesses,id';
         }
 
         $validated = $request->validate($rules);
 
-        // Obtener tenant según contexto
-        $tenantId = $esPublico
-            ? $validated['negocios_id']
-            : $user->negocios_id;
+        $tenantId = $esPublico ? $validated['negocios_id'] : $user->negocios_id;
+        $emailOriginal = $validated['email'];
 
-        // 🔥 BUSCAR USUARIO: Primero en el tenant, luego globalmente
-        $userCliente = User::where('email', $validated['email'])
-            ->where('negocios_id', $tenantId)
-            ->first();
+        // 🔥 BUSCAR USUARIO POR EMAIL (sin importar el tenant)
+        $userCliente = User::where('email', $emailOriginal)->first();
 
-        // Si no existe en el tenant actual
+        // Si NO existe, crear nuevo usuario
         if (!$userCliente) {
-            // 🔥 Verificar si el email existe en OTRO negocio
-            $usuarioExistenteOtroNegocio = User::where('email', $validated['email'])
-                ->where('negocios_id', '!=', $tenantId)
-                ->first();
-
-            if ($usuarioExistenteOtroNegocio) {
-                // 🔥 OPCIÓN 1: Crear usuario con email modificado (sufijo)
-                // Esto permite que el mismo cliente use diferentes negocios
-                $baseEmail = $validated['email'];
-                $emailParts = explode('@', $baseEmail);
-                $newEmail = $emailParts[0] . '+negocio' . $tenantId . '@' . $emailParts[1];
-
-                Log::info("⚠️ Email {$baseEmail} ya existe en otro negocio. Creando con: {$newEmail}");
-
-                $emailParaCita = $baseEmail; // El original para la cita
-                $emailParaUsuario = $newEmail; // El modificado para la BD
-            } else {
-                // Email no existe en ningún negocio
-                $emailParaCita = $validated['email'];
-                $emailParaUsuario = $validated['email'];
-            }
-
-            // Preparar datos del usuario
+            // Preparar datos
             if (!empty($validated['nombres'])) {
                 $nombres = $validated['nombres'];
                 $apellidos = (isset($validated['apellidos']) && trim($validated['apellidos']) !== '')
                     ? $validated['apellidos']
-                    : 'Nuevo';
+                    : 'Cliente';
             } else {
                 $nombrePartes = explode(' ', $validated['nombre']);
                 $nombres = $nombrePartes[0] ?? 'Cliente';
@@ -158,11 +134,11 @@ public function store(Request $request)
             $identificacion = $validated['identificacion'] ?? ($validated['numero_documento'] ?? null);
             $celular = $validated['celular'] ?? ($validated['numero_telefono'] ?? null);
 
-            // Crear el usuario
+            // Crear usuario
             $userCliente = User::create([
                 'nombres' => $nombres,
                 'apellidos' => $apellidos,
-                'email' => $emailParaUsuario, // 🔥 Usa el email (posiblemente modificado)
+                'email' => $emailOriginal,
                 'celular' => $celular,
                 'tipo_identificacion_id' => $tipoIdentificacionId ?? 1,
                 'identificacion' => $identificacion,
@@ -172,23 +148,20 @@ public function store(Request $request)
                 'negocios_id' => $tenantId,
                 'terminos_condiciones' => true
             ]);
+
+            Log::info("✅ Nuevo usuario creado: {$emailOriginal} (ID: {$userCliente->id})");
         } else {
-            // Usuario existe en el tenant
-            $emailParaCita = $validated['email'];
+            Log::info("ℹ️ Usuario existente reutilizado: {$emailOriginal} (ID: {$userCliente->id})");
         }
 
-        // Preparar datos del cliente para la cita
+        // Preparar datos del cliente
         if (!empty($validated['nombre'])) {
             $clienteNombre = $validated['nombre'];
         } else {
             $n = $validated['nombres'] ?? '';
-            $a = isset($validated['apellidos']) && trim($validated['apellidos']) !== ''
-                ? $validated['apellidos']
-                : '';
+            $a = isset($validated['apellidos']) && trim($validated['apellidos']) !== '' ? $validated['apellidos'] : '';
             $clienteNombre = trim($n . ' ' . $a);
         }
-
-        $clienteEmail = $emailParaCita ?? $validated['email']; // 🔥 Usar el email ORIGINAL
 
         $clienteTipoDoc = $validated['tipo_documento'] ?? null;
         if (!$clienteTipoDoc && !empty($validated['tipo_identificacion_id'])) {
@@ -233,7 +206,7 @@ public function store(Request $request)
             'tiempo_estimado' => $tiempoEstimado,
             'nota' => $validated['nota'] ?? null,
             'cliente_nombre' => $clienteNombre,
-            'cliente_email' => $clienteEmail, // 🔥 Email ORIGINAL para mostrar
+            'cliente_email' => $emailOriginal,
             'cliente_tipo_doc' => $clienteTipoDoc,
             'cliente_num_doc' => $clienteNumDoc,
             'cliente_fecha_nac' => $clienteFechaNac,
@@ -244,17 +217,17 @@ public function store(Request $request)
 
         $appointment->load(['user', 'business', 'status', 'service', 'agenda']);
 
-        // 🔥 Enviar correo al EMAIL ORIGINAL
+        // Enviar correo
         $emailSent = false;
         $emailError = null;
 
         try {
-            Mail::to($clienteEmail)->send(new AppointmentConfirmation($appointment));
+            Mail::to($emailOriginal)->send(new AppointmentConfirmation($appointment));
             $emailSent = true;
-            Log::info('✅ Correo enviado exitosamente a: ' . $clienteEmail);
+            Log::info('✅ Correo enviado a: ' . $emailOriginal);
         } catch (\Exception $mailError) {
             $emailError = $mailError->getMessage();
-            Log::warning('⚠️ No se pudo enviar el correo: ' . $emailError);
+            Log::warning('⚠️ Error enviando correo: ' . $emailError);
         }
 
         return response()->json([
