@@ -61,189 +61,223 @@ class AppointmentController extends Controller
     /**
      * POST /api/appointments - Soporta rutas públicas y protegidas
      */
-    public function store(Request $request)
-    {
-        try {
-            // 🔥 Detectar si es ruta pública o protegida - CORREGIDO
-            $user = Auth::user();
-            $esPublico = !$user;
+  /**
+ * POST /api/appointments - Soporta rutas públicas y protegidas
+ */
+public function store(Request $request)
+{
+    try {
+        // 🔥 Detectar si es ruta pública o protegida
+        $user = Auth::user();
+        $esPublico = !$user;
 
-            $rules = [
-                'nombre' => 'required_without:nombres|string|max:255',
-                'nombres' => 'required_without:nombre|string|max:255',
-                'apellidos' => 'sometimes|nullable|string|max:255',
-                'email' => 'required|email',
-                'tipo_documento' => 'required_without:tipo_identificacion_id|string|max:10',
-                'tipo_identificacion_id' => 'required_without:tipo_documento|integer|exists:categories,id',
-                'numero_documento' => 'required_without:identificacion|string|max:50',
-                'identificacion' => 'required_without:numero_documento|string|max:50',
-                'fecha_nacimiento' => 'nullable|date',
-                'nacimiento' => 'nullable|date',
-                'numero_telefono' => 'required_without:celular|string|max:20',
-                'celular' => 'required_without:numero_telefono|string|max:20',
-                'tipo_cita' => 'required_without:servicios_id|string',
-                'personal_servicio' => 'required|string',
-                'fecha_cita' => 'required|date',
-                'hora_cita' => 'required|string',
-                'nota' => 'nullable|string',
-                'servicios_id' => 'required|exists:services,id',
-                'agendas_id' => 'nullable|exists:agendas,id',
-                'estados_id' => 'nullable|exists:statuses,id',
-                'tiempo_estimado' => 'nullable|integer'
-            ];
+        $rules = [
+            'nombre' => 'required_without:nombres|string|max:255',
+            'nombres' => 'required_without:nombre|string|max:255',
+            'apellidos' => 'sometimes|nullable|string|max:255',
+            'email' => 'required|email',
+            'tipo_documento' => 'required_without:tipo_identificacion_id|string|max:10',
+            'tipo_identificacion_id' => 'required_without:tipo_documento|integer|exists:categories,id',
+            'numero_documento' => 'required_without:identificacion|string|max:50',
+            'identificacion' => 'required_without:numero_documento|string|max:50',
+            'fecha_nacimiento' => 'nullable|date',
+            'nacimiento' => 'nullable|date',
+            'numero_telefono' => 'required_without:celular|string|max:20',
+            'celular' => 'required_without:numero_telefono|string|max:20',
+            'tipo_cita' => 'required_without:servicios_id|string',
+            'personal_servicio' => 'required|string',
+            'fecha_cita' => 'required|date',
+            'hora_cita' => 'required|string',
+            'nota' => 'nullable|string',
+            'servicios_id' => 'required|exists:services,id',
+            'agendas_id' => 'nullable|exists:agendas,id',
+            'estados_id' => 'nullable|exists:statuses,id',
+            'tiempo_estimado' => 'nullable|integer'
+        ];
 
-            // Si es público, negocios_id es REQUERIDO
-            if ($esPublico) {
-                $rules['negocios_id'] = 'required|exists:businesses,id';
-            }
+        // Si es público, negocios_id es REQUERIDO
+        if ($esPublico) {
+            $rules['negocios_id'] = 'required|exists:businesses,id';
+        }
 
-            $validated = $request->validate($rules);
+        $validated = $request->validate($rules);
 
-            // Obtener tenant según contexto
-            $tenantId = $esPublico
-                ? $validated['negocios_id']
-                : $user->negocios_id;
+        // Obtener tenant según contexto
+        $tenantId = $esPublico
+            ? $validated['negocios_id']
+            : $user->negocios_id;
 
-            // Buscar o crear usuario EN EL MISMO TENANT
-            $userCliente = User::where('email', $validated['email'])
-                ->where('negocios_id', $tenantId)
+        // 🔥 BUSCAR USUARIO: Primero en el tenant, luego globalmente
+        $userCliente = User::where('email', $validated['email'])
+            ->where('negocios_id', $tenantId)
+            ->first();
+
+        // Si no existe en el tenant actual
+        if (!$userCliente) {
+            // 🔥 Verificar si el email existe en OTRO negocio
+            $usuarioExistenteOtroNegocio = User::where('email', $validated['email'])
+                ->where('negocios_id', '!=', $tenantId)
                 ->first();
 
-            if (!$userCliente) {
-                if (!empty($validated['nombres'])) {
-                    $nombres = $validated['nombres'];
-                    $apellidos = (isset($validated['apellidos']) && trim($validated['apellidos']) !== '')
-                        ? $validated['apellidos']
-                        : 'Nuevo';
-                } else {
-                    $nombrePartes = explode(' ', $validated['nombre']);
-                    $nombres = $nombrePartes[0] ?? 'Cliente';
-                    $apellidos = implode(' ', array_slice($nombrePartes, 1)) ?: 'Nuevo';
-                }
+            if ($usuarioExistenteOtroNegocio) {
+                // 🔥 OPCIÓN 1: Crear usuario con email modificado (sufijo)
+                // Esto permite que el mismo cliente use diferentes negocios
+                $baseEmail = $validated['email'];
+                $emailParts = explode('@', $baseEmail);
+                $newEmail = $emailParts[0] . '+negocio' . $tenantId . '@' . $emailParts[1];
 
-                $tipoIdentificacionId = $validated['tipo_identificacion_id'] ?? null;
-                if (!$tipoIdentificacionId && !empty($validated['tipo_documento'])) {
-                    $tipoAbrev = mb_strtolower($validated['tipo_documento']);
-                    $category = Category::whereRaw('LOWER(abreviatura) = ?', [$tipoAbrev])->first();
-                    $tipoIdentificacionId = $category->id ?? 1;
-                }
+                Log::info("⚠️ Email {$baseEmail} ya existe en otro negocio. Creando con: {$newEmail}");
 
-                $identificacion = $validated['identificacion'] ?? ($validated['numero_documento'] ?? null);
-                $celular = $validated['celular'] ?? ($validated['numero_telefono'] ?? null);
-
-                $userCliente = User::create([
-                    'nombres' => $nombres,
-                    'apellidos' => $apellidos,
-                    'email' => $validated['email'],
-                    'celular' => $celular,
-                    'tipo_identificacion_id' => $tipoIdentificacionId ?? 1,
-                    'identificacion' => $identificacion,
-                    'clave' => null,
-                    'estados_id' => 1,
-                    'roles_id' => 2,
-                    'negocios_id' => $tenantId,
-                    'terminos_condiciones' => true
-                ]);
-            }
-
-            // Preparar datos del cliente
-            if (!empty($validated['nombre'])) {
-                $clienteNombre = $validated['nombre'];
+                $emailParaCita = $baseEmail; // El original para la cita
+                $emailParaUsuario = $newEmail; // El modificado para la BD
             } else {
-                $n = $validated['nombres'] ?? '';
-                $a = isset($validated['apellidos']) && trim($validated['apellidos']) !== ''
+                // Email no existe en ningún negocio
+                $emailParaCita = $validated['email'];
+                $emailParaUsuario = $validated['email'];
+            }
+
+            // Preparar datos del usuario
+            if (!empty($validated['nombres'])) {
+                $nombres = $validated['nombres'];
+                $apellidos = (isset($validated['apellidos']) && trim($validated['apellidos']) !== '')
                     ? $validated['apellidos']
-                    : '';
-                $clienteNombre = trim($n . ' ' . $a);
+                    : 'Nuevo';
+            } else {
+                $nombrePartes = explode(' ', $validated['nombre']);
+                $nombres = $nombrePartes[0] ?? 'Cliente';
+                $apellidos = implode(' ', array_slice($nombrePartes, 1)) ?: 'Nuevo';
             }
 
-            $clienteEmail = $validated['email'] ?? null;
-
-            $clienteTipoDoc = $validated['tipo_documento'] ?? null;
-            if (!$clienteTipoDoc && !empty($validated['tipo_identificacion_id'])) {
-                $catForCliente = Category::find($validated['tipo_identificacion_id']);
-                $clienteTipoDoc = $catForCliente->abreviatura ?? null;
+            $tipoIdentificacionId = $validated['tipo_identificacion_id'] ?? null;
+            if (!$tipoIdentificacionId && !empty($validated['tipo_documento'])) {
+                $tipoAbrev = mb_strtolower($validated['tipo_documento']);
+                $category = Category::whereRaw('LOWER(abreviatura) = ?', [$tipoAbrev])->first();
+                $tipoIdentificacionId = $category->id ?? 1;
             }
 
-            $clienteNumDoc = $validated['numero_documento'] ?? ($validated['identificacion'] ?? null);
-            $clienteFechaNac = $validated['fecha_nacimiento'] ?? ($validated['nacimiento'] ?? null);
-            $clienteTelefono = $validated['numero_telefono'] ?? ($validated['celular'] ?? null);
+            $identificacion = $validated['identificacion'] ?? ($validated['numero_documento'] ?? null);
+            $celular = $validated['celular'] ?? ($validated['numero_telefono'] ?? null);
 
-            $fechaCompleta = Carbon::parse($validated['fecha_cita'] . ' ' . $validated['hora_cita']);
-            $tiempoEstimado = $validated['tiempo_estimado'] ?? 60;
-            $fechaFin = $fechaCompleta->copy()->addMinutes($tiempoEstimado);
-
-            // Verificar conflictos
-            if (Appointment::where('negocios_id', $tenantId)
-                ->where('usuarios_id', $userCliente->id)
-                ->where('estados_id', '!=', 5)
-                ->where(function ($q) use ($fechaCompleta, $fechaFin) {
-                    $q->whereBetween('fecha', [$fechaCompleta, $fechaFin])
-                      ->orWhereBetween('fecha_fin', [$fechaCompleta, $fechaFin])
-                      ->orWhere(function ($q2) use ($fechaCompleta, $fechaFin) {
-                          $q2->where('fecha', '<=', $fechaCompleta)
-                             ->where('fecha_fin', '>=', $fechaFin);
-                      });
-                })->exists()) {
-                return response()->json([
-                    'message' => 'Ya existe una cita en ese horario para este cliente'
-                ], 422);
-            }
-
-            $appointment = Appointment::create([
-                'usuarios_id' => $userCliente->id,
+            // Crear el usuario
+            $userCliente = User::create([
+                'nombres' => $nombres,
+                'apellidos' => $apellidos,
+                'email' => $emailParaUsuario, // 🔥 Usa el email (posiblemente modificado)
+                'celular' => $celular,
+                'tipo_identificacion_id' => $tipoIdentificacionId ?? 1,
+                'identificacion' => $identificacion,
+                'clave' => null,
+                'estados_id' => 1,
+                'roles_id' => 2,
                 'negocios_id' => $tenantId,
-                'servicios_id' => $validated['servicios_id'],
-                'agendas_id' => $validated['agendas_id'] ?? null,
-                'estados_id' => $validated['estados_id'] ?? 3,
-                'fecha' => $fechaCompleta,
-                'fecha_fin' => $fechaFin,
-                'tiempo_estimado' => $tiempoEstimado,
-                'nota' => $validated['nota'] ?? null,
-                'cliente_nombre' => $clienteNombre,
-                'cliente_email' => $clienteEmail,
-                'cliente_tipo_doc' => $clienteTipoDoc,
-                'cliente_num_doc' => $clienteNumDoc,
-                'cliente_fecha_nac' => $clienteFechaNac,
-                'cliente_telefono' => $clienteTelefono,
-                'tipo_servicio' => $validated['tipo_cita'] ?? null,
-                'personal_asignado' => $validated['personal_servicio'] ?? null
+                'terminos_condiciones' => true
             ]);
-
-            $appointment->load(['user', 'business', 'status', 'service', 'agenda']);
-
-            // Enviar correo
-            $emailSent = false;
-            $emailError = null;
-
-            try {
-                Mail::to($validated['email'])->send(new AppointmentConfirmation($appointment));
-                $emailSent = true;
-                Log::info('✅ Correo enviado exitosamente a: ' . $validated['email']);
-            } catch (\Exception $mailError) {
-                $emailError = $mailError->getMessage();
-                Log::warning('⚠ No se pudo enviar el correo: ' . $emailError);
-            }
-
-            return response()->json([
-                'appointment' => $appointment,
-                'email_sent' => $emailSent,
-                'email_error' => $emailError
-            ], 201);
-
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'message' => 'Error de validación',
-                'errors' => $e->errors()
-            ], 422);
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Error al crear la cita',
-                'error' => $e->getMessage()
-            ], 500);
+        } else {
+            // Usuario existe en el tenant
+            $emailParaCita = $validated['email'];
         }
-    }
 
+        // Preparar datos del cliente para la cita
+        if (!empty($validated['nombre'])) {
+            $clienteNombre = $validated['nombre'];
+        } else {
+            $n = $validated['nombres'] ?? '';
+            $a = isset($validated['apellidos']) && trim($validated['apellidos']) !== ''
+                ? $validated['apellidos']
+                : '';
+            $clienteNombre = trim($n . ' ' . $a);
+        }
+
+        $clienteEmail = $emailParaCita ?? $validated['email']; // 🔥 Usar el email ORIGINAL
+
+        $clienteTipoDoc = $validated['tipo_documento'] ?? null;
+        if (!$clienteTipoDoc && !empty($validated['tipo_identificacion_id'])) {
+            $catForCliente = Category::find($validated['tipo_identificacion_id']);
+            $clienteTipoDoc = $catForCliente->abreviatura ?? null;
+        }
+
+        $clienteNumDoc = $validated['numero_documento'] ?? ($validated['identificacion'] ?? null);
+        $clienteFechaNac = $validated['fecha_nacimiento'] ?? ($validated['nacimiento'] ?? null);
+        $clienteTelefono = $validated['numero_telefono'] ?? ($validated['celular'] ?? null);
+
+        $fechaCompleta = Carbon::parse($validated['fecha_cita'] . ' ' . $validated['hora_cita']);
+        $tiempoEstimado = $validated['tiempo_estimado'] ?? 60;
+        $fechaFin = $fechaCompleta->copy()->addMinutes($tiempoEstimado);
+
+        // Verificar conflictos
+        if (Appointment::where('negocios_id', $tenantId)
+            ->where('usuarios_id', $userCliente->id)
+            ->where('estados_id', '!=', 5)
+            ->where(function ($q) use ($fechaCompleta, $fechaFin) {
+                $q->whereBetween('fecha', [$fechaCompleta, $fechaFin])
+                  ->orWhereBetween('fecha_fin', [$fechaCompleta, $fechaFin])
+                  ->orWhere(function ($q2) use ($fechaCompleta, $fechaFin) {
+                      $q2->where('fecha', '<=', $fechaCompleta)
+                         ->where('fecha_fin', '>=', $fechaFin);
+                  });
+            })->exists()) {
+            return response()->json([
+                'message' => 'Ya existe una cita en ese horario para este cliente'
+            ], 422);
+        }
+
+        // Crear la cita
+        $appointment = Appointment::create([
+            'usuarios_id' => $userCliente->id,
+            'negocios_id' => $tenantId,
+            'servicios_id' => $validated['servicios_id'],
+            'agendas_id' => $validated['agendas_id'] ?? null,
+            'estados_id' => $validated['estados_id'] ?? 3,
+            'fecha' => $fechaCompleta,
+            'fecha_fin' => $fechaFin,
+            'tiempo_estimado' => $tiempoEstimado,
+            'nota' => $validated['nota'] ?? null,
+            'cliente_nombre' => $clienteNombre,
+            'cliente_email' => $clienteEmail, // 🔥 Email ORIGINAL para mostrar
+            'cliente_tipo_doc' => $clienteTipoDoc,
+            'cliente_num_doc' => $clienteNumDoc,
+            'cliente_fecha_nac' => $clienteFechaNac,
+            'cliente_telefono' => $clienteTelefono,
+            'tipo_servicio' => $validated['tipo_cita'] ?? null,
+            'personal_asignado' => $validated['personal_servicio'] ?? null
+        ]);
+
+        $appointment->load(['user', 'business', 'status', 'service', 'agenda']);
+
+        // 🔥 Enviar correo al EMAIL ORIGINAL
+        $emailSent = false;
+        $emailError = null;
+
+        try {
+            Mail::to($clienteEmail)->send(new AppointmentConfirmation($appointment));
+            $emailSent = true;
+            Log::info('✅ Correo enviado exitosamente a: ' . $clienteEmail);
+        } catch (\Exception $mailError) {
+            $emailError = $mailError->getMessage();
+            Log::warning('⚠️ No se pudo enviar el correo: ' . $emailError);
+        }
+
+        return response()->json([
+            'appointment' => $appointment,
+            'email_sent' => $emailSent,
+            'email_error' => $emailError
+        ], 201);
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        return response()->json([
+            'message' => 'Error de validación',
+            'errors' => $e->errors()
+        ], 422);
+    } catch (\Exception $e) {
+        Log::error('❌ Error al crear cita: ' . $e->getMessage());
+        Log::error($e->getTraceAsString());
+
+        return response()->json([
+            'message' => 'Error al crear la cita',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
     /**
      * PUT /api/appointments/{id}
      */
