@@ -75,7 +75,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // ========================================
     Route::prefix('appointments')->group(function () {
         Route::get('/', [AppointmentController::class, 'index']);
-        Route::get('/{id}', [AppointmentController::class, 'show']);
+        Route::get('/report', [AppointmentController::class, 'getReport']); // 🔥 Informe de citas confirmadas (DEBE IR ANTES DE /{id})
+        Route::get('/{id}', [AppointmentController::class, 'show'])->where('id', '[0-9]+'); // Solo acepta números
         // POST ya está en rutas públicas
         Route::put('/{id}', [AppointmentController::class, 'update']);
         Route::patch('/{id}', [AppointmentController::class, 'patch']);
