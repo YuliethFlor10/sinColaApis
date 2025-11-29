@@ -697,19 +697,20 @@ class AppointmentController extends Controller
     }
 
     /**
-     * GET /api/appointments/report - Generar informe de citas confirmadas y ganancias
-     * 
+     * GET /api/appointments/report - Generar informe completo de citas confirmadas y ganancias
+     *
      * Filtros disponibles:
      * - tipo_fecha: 'diario', 'mensual', 'personalizado'
      * - fecha_inicio: fecha inicio (para personalizado)
      * - fecha_fin: fecha fin (para personalizado)
      * - empleado_id: ID del empleado (solo para negocios)
+     * - agrupar_por: 'dia', 'mes', 'semana' (para agrupar datos en gráficas)
      */
     public function getReport(Request $request)
     {
         try {
             $user = Auth::user();
-            
+
             if (!$user) {
                 return response()->json(['message' => 'No autenticado'], 401);
             }
@@ -719,7 +720,7 @@ class AppointmentController extends Controller
 
             // Obtener estado "Confirmada"
             $confirmedStatus = Status::where('nombre', 'Confirmada')->first();
-            
+
             if (!$confirmedStatus) {
                 return response()->json(['message' => 'Estado "Confirmada" no encontrado'], 404);
             }
@@ -734,14 +735,24 @@ class AppointmentController extends Controller
                 'tipo_fecha' => 'nullable|in:diario,mensual,personalizado',
                 'fecha_inicio' => 'nullable|date|required_if:tipo_fecha,personalizado',
                 'fecha_fin' => 'nullable|date|required_if:tipo_fecha,personalizado|after_or_equal:fecha_inicio',
-                'empleado_id' => 'nullable|exists:users,id'
+                'empleado_id' => 'nullable|exists:users,id',
+                'agrupar_por' => 'nullable|in:dia,mes,semana'
             ]);
 
             $tipoFecha = $validated['tipo_fecha'] ?? 'mensual';
-            
-            // Construir query base
-            $query = Appointment::with(['service', 'status', 'user', 'business'])
-                ->where('estados_id', $confirmedStatus->id);
+            $agruparPor = $validated['agrupar_por'] ?? 'dia';
+
+            // Construir query base - Optimizado: solo cargar relaciones necesarias
+            $query = Appointment::with([
+                'service:id,nombre,precio,descripcion,tiempo_estimado',
+                'user:id,nombres,apellidos,email,celular'
+            ])
+            ->select([
+                'id', 'usuarios_id', 'negocios_id', 'servicios_id', 'estados_id',
+                'fecha', 'fecha_fin', 'cliente_nombre', 'cliente_email',
+                'cliente_telefono', 'personal_asignado', 'nota'
+            ])
+            ->where('estados_id', $confirmedStatus->id);
 
             // Filtrar por negocio (tenant)
             $query->where('negocios_id', $user->negocios_id);
@@ -785,35 +796,66 @@ class AppointmentController extends Controller
                 $query->whereBetween('fecha', [$fechaInicio, $fechaFin]);
             }
 
-            // Obtener citas
+            // Obtener citas ordenadas
             $appointments = $query->orderBy('fecha', 'asc')->get();
 
             // Procesar datos para estadísticas
             $totalCitas = $appointments->count();
             $gananciaTotal = 0;
-            $gananciasPorCita = [];
+            $citasDetalladas = [];
             $citasPorFecha = [];
             $gananciasPorFecha = [];
             $serviciosRealizados = [];
             $resumenPorEmpleado = [];
 
             foreach ($appointments as $appointment) {
-                // Calcular ganancia
-                $precio = $appointment->service ? (float) $appointment->service->precio : 0;
+                // Obtener precio del servicio - Asegurar que no sea 0
+                $precio = 0;
+                if ($appointment->service && $appointment->service->precio) {
+                    $precio = (float) $appointment->service->precio;
+                }
+
+                // Si el precio es 0, intentar obtenerlo de otra forma o usar un valor por defecto
+                if ($precio == 0 && $appointment->service) {
+                    // Intentar obtener precio directamente de la base de datos
+                    $service = \App\Models\Service::find($appointment->servicios_id);
+                    if ($service && $service->precio) {
+                        $precio = (float) $service->precio;
+                    }
+                }
+
                 $gananciaTotal += $precio;
-                
-                $gananciasPorCita[] = [
+
+                // Datos completos de cada cita
+                $citaDetallada = [
                     'id' => $appointment->id,
-                    'fecha' => $appointment->fecha->format('Y-m-d H:i:s'),
-                    'cliente_nombre' => $appointment->cliente_nombre,
-                    'servicio_nombre' => $appointment->service ? $appointment->service->nombre : 'N/A',
-                    'precio' => $precio,
-                    'personal_asignado' => $appointment->personal_asignado
+                    'cliente' => [
+                        'nombre' => $appointment->cliente_nombre ?? ($appointment->user ? trim($appointment->user->nombres . ' ' . $appointment->user->apellidos) : 'N/A'),
+                        'email' => $appointment->cliente_email ?? ($appointment->user ? $appointment->user->email : null),
+                        'telefono' => $appointment->cliente_telefono ?? ($appointment->user ? $appointment->user->celular : null),
+                    ],
+                    'servicio' => [
+                        'id' => $appointment->servicios_id,
+                        'nombre' => $appointment->service ? $appointment->service->nombre : 'N/A',
+                        'descripcion' => $appointment->service ? $appointment->service->descripcion : null,
+                        'tiempo_estimado' => $appointment->service ? $appointment->service->tiempo_estimado : null,
+                    ],
+                    'precio' => round($precio, 2),
+                    'empleado_asignado' => $appointment->personal_asignado ?? 'Sin asignar',
+                    'fecha' => [
+                        'inicio' => $appointment->fecha->format('Y-m-d H:i:s'),
+                        'fin' => $appointment->fecha_fin ? $appointment->fecha_fin->format('Y-m-d H:i:s') : null,
+                        'fecha_solo' => $appointment->fecha->format('Y-m-d'),
+                        'hora' => $appointment->fecha->format('H:i'),
+                    ],
+                    'nota' => $appointment->nota,
                 ];
 
-                // Agrupar por fecha para gráficos
-                $fechaKey = $appointment->fecha->format('Y-m-d');
-                
+                $citasDetalladas[] = $citaDetallada;
+
+                // Agrupar por fecha según el parámetro agrupar_por
+                $fechaKey = $this->getFechaKey($appointment->fecha, $agruparPor);
+
                 if (!isset($citasPorFecha[$fechaKey])) {
                     $citasPorFecha[$fechaKey] = 0;
                     $gananciasPorFecha[$fechaKey] = 0;
@@ -823,15 +865,19 @@ class AppointmentController extends Controller
 
                 // Servicios más realizados
                 $servicioNombre = $appointment->service ? $appointment->service->nombre : 'N/A';
-                if (!isset($serviciosRealizados[$servicioNombre])) {
-                    $serviciosRealizados[$servicioNombre] = [
+                $servicioId = $appointment->servicios_id;
+
+                if (!isset($serviciosRealizados[$servicioId])) {
+                    $serviciosRealizados[$servicioId] = [
+                        'id' => $servicioId,
                         'nombre' => $servicioNombre,
                         'cantidad' => 0,
-                        'ganancia' => 0
+                        'ganancia_total' => 0,
+                        'ganancia_promedio' => 0
                     ];
                 }
-                $serviciosRealizados[$servicioNombre]['cantidad']++;
-                $serviciosRealizados[$servicioNombre]['ganancia'] += $precio;
+                $serviciosRealizados[$servicioId]['cantidad']++;
+                $serviciosRealizados[$servicioId]['ganancia_total'] += $precio;
 
                 // Resumen por empleado (solo para negocios)
                 if ($isBusiness) {
@@ -840,11 +886,28 @@ class AppointmentController extends Controller
                         $resumenPorEmpleado[$empleadoNombre] = [
                             'nombre' => $empleadoNombre,
                             'cantidad_citas' => 0,
-                            'ganancia_total' => 0
+                            'ganancia_total' => 0,
+                            'ganancia_promedio' => 0
                         ];
                     }
                     $resumenPorEmpleado[$empleadoNombre]['cantidad_citas']++;
                     $resumenPorEmpleado[$empleadoNombre]['ganancia_total'] += $precio;
+                }
+            }
+
+            // Calcular promedios para servicios
+            foreach ($serviciosRealizados as &$servicio) {
+                if ($servicio['cantidad'] > 0) {
+                    $servicio['ganancia_promedio'] = round($servicio['ganancia_total'] / $servicio['cantidad'], 2);
+                    $servicio['ganancia_total'] = round($servicio['ganancia_total'], 2);
+                }
+            }
+
+            // Calcular promedios para empleados
+            foreach ($resumenPorEmpleado as &$empleado) {
+                if ($empleado['cantidad_citas'] > 0) {
+                    $empleado['ganancia_promedio'] = round($empleado['ganancia_total'] / $empleado['cantidad_citas'], 2);
+                    $empleado['ganancia_total'] = round($empleado['ganancia_total'], 2);
                 }
             }
 
@@ -861,39 +924,51 @@ class AppointmentController extends Controller
                 return strcmp($a['fecha'], $b['fecha']);
             });
 
-            // Convertir servicios realizados a array
+            // Convertir servicios realizados a array y ordenar
             $serviciosArray = array_values($serviciosRealizados);
             usort($serviciosArray, function($a, $b) {
                 return $b['cantidad'] - $a['cantidad'];
             });
 
-            // Convertir resumen por empleado a array
+            // Convertir resumen por empleado a array y ordenar
             $empleadosArray = array_values($resumenPorEmpleado);
             usort($empleadosArray, function($a, $b) {
                 return $b['ganancia_total'] - $a['ganancia_total'];
             });
 
-            // Calcular promedios
+            // Calcular estadísticas generales
             $promedioPorCita = $totalCitas > 0 ? round($gananciaTotal / $totalCitas, 2) : 0;
 
-            // Preparar respuesta
+            // Preparar respuesta completa
             $response = [
                 'resumen' => [
                     'total_citas' => $totalCitas,
                     'ganancia_total' => round($gananciaTotal, 2),
-                    'promedio_por_cita' => $promedioPorCita,
+                    'ganancia_promedio_por_cita' => $promedioPorCita,
                     'periodo' => [
                         'tipo' => $tipoFecha,
                         'fecha_inicio' => $fechaInicio ? $fechaInicio->format('Y-m-d') : null,
-                        'fecha_fin' => $fechaFin ? $fechaFin->format('Y-m-d') : null
+                        'fecha_fin' => $fechaFin ? $fechaFin->format('Y-m-d') : null,
+                        'agrupar_por' => $agruparPor
                     ]
                 ],
                 'graficos' => [
-                    'datos_por_fecha' => $datosGrafico
+                    'evolucion_temporal' => [
+                        'etiquetas' => array_column($datosGrafico, 'fecha'),
+                        'cantidad_citas' => array_column($datosGrafico, 'cantidad_citas'),
+                        'ganancias' => array_column($datosGrafico, 'ganancia'),
+                        'datos_completos' => $datosGrafico
+                    ],
+                    'servicios' => [
+                        'etiquetas' => array_column($serviciosArray, 'nombre'),
+                        'cantidades' => array_column($serviciosArray, 'cantidad'),
+                        'ganancias' => array_column($serviciosArray, 'ganancia_total'),
+                        'datos_completos' => array_slice($serviciosArray, 0, 10) // Top 10
+                    ]
                 ],
-                'citas_detalladas' => $gananciasPorCita,
-                'servicios_mas_realizados' => array_slice($serviciosArray, 0, 10), // Top 10
-                'resumen_por_empleado' => $isBusiness ? $empleadosArray : []
+                'citas' => $citasDetalladas,
+                'resumen_por_empleado' => $isBusiness ? $empleadosArray : [],
+                'servicios_mas_realizados' => array_slice($serviciosArray, 0, 10) // Top 10
             ];
 
             return response()->json($response, 200);
@@ -908,6 +983,22 @@ class AppointmentController extends Controller
                 'message' => 'Error al generar el informe',
                 'error' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Obtener clave de fecha según el tipo de agrupación
+     */
+    private function getFechaKey(Carbon $fecha, string $tipo): string
+    {
+        switch ($tipo) {
+            case 'mes':
+                return $fecha->format('Y-m');
+            case 'semana':
+                return $fecha->format('Y-W'); // Año-Semana
+            case 'dia':
+            default:
+                return $fecha->format('Y-m-d');
         }
     }
 }
