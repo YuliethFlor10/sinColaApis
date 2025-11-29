@@ -132,13 +132,11 @@ class BusinessController extends Controller
                 ->map(function($user) {
                     return [
                         'id' => $user->id,
-                        'nombre' => trim("{$user->nombres} {$user->apellidos}"),
+                        'nombres' => $user->nombres,
+                        'apellidos' => $user->apellidos,
                         'email' => $user->email,
+                        'nombre_completo' => trim("{$user->nombres} {$user->apellidos}"),
                         'roles_id' => $user->roles_id,
-                        'rol' => [
-                            'id' => $user->role->id ?? 0,
-                            'nombre' => $user->role->nombre ?? 'Sin rol'
-                        ]
                     ];
                 });
 

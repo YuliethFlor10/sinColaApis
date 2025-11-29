@@ -700,11 +700,14 @@ class AppointmentController extends Controller
      * GET /api/appointments/report - Generar informe completo de citas confirmadas y ganancias
      *
      * Filtros disponibles:
-     * - tipo_fecha: 'diario', 'mensual', 'personalizado'
-     * - fecha_inicio: fecha inicio (para personalizado)
-     * - fecha_fin: fecha fin (para personalizado)
-     * - empleado_id: ID del empleado (solo para negocios)
-     * - agrupar_por: 'dia', 'mes', 'semana' (para agrupar datos en gráficas)
+     * - tipo_fecha: 'diario', 'mensual', 'personalizado' (requerido)
+     * - fecha_inicio: fecha inicio (requerido si tipo_fecha=personalizado)
+     * - fecha_fin: fecha fin (requerido si tipo_fecha=personalizado)
+     * - empleado_id: ID del empleado (opcional, solo para negocios)
+     *
+     * Filtrado automático:
+     * - Si roles_id === 3 (Empleado): filtra automáticamente por ID del usuario autenticado
+     * - Si roles_id === 1 o 4 (Negocio): muestra todos o filtra por empleado_id si se envía
      */
     public function getReport(Request $request)
     {
@@ -729,42 +732,54 @@ class AppointmentController extends Controller
 
             // Obtener rol del usuario
             $userRole = $user->role;
-            $isEmployee = $userRole && in_array(strtolower($userRole->nombre), ['empleado', 'recepcionista']);
-            $isBusiness = $userRole && in_array(strtolower($userRole->nombre), ['propietario', 'admin']);
+            $rolesId = $user->roles_id;
+
+            // Determinar tipo de usuario según roles_id
+            $isEmployee = ($rolesId == 3); // Empleado
+            $isBusiness = ($rolesId == 1 || $rolesId == 4); // Admin o Propietario
 
             // Validar filtros
             $validated = $request->validate([
-                'tipo_fecha' => 'nullable|in:diario,mensual,personalizado',
+                'tipo_fecha' => 'required|in:diario,mensual,personalizado',
                 'fecha_inicio' => 'nullable|date|required_if:tipo_fecha,personalizado',
                 'fecha_fin' => 'nullable|date|required_if:tipo_fecha,personalizado|after_or_equal:fecha_inicio',
-                'empleado_id' => 'nullable|exists:users,id',
-                'agrupar_por' => 'nullable|in:dia,mes,semana'
+                'empleado_id' => 'nullable|exists:users,id'
             ]);
 
-            $tipoFecha = $validated['tipo_fecha'] ?? 'mensual';
-            $agruparPor = $validated['agrupar_por'] ?? 'dia';
+            $tipoFecha = $validated['tipo_fecha'];
 
-            // Construir query base - Cargar relaciones completas para asegurar precios
-            $query = Appointment::with(['service', 'user'])
+            // Construir query base - Cargar relaciones completas
+            $query = Appointment::with(['service', 'user', 'status'])
                 ->where('estados_id', $confirmedStatus->id);
 
             // Filtrar por negocio (tenant)
             $query->where('negocios_id', $user->negocios_id);
 
-            // Filtrar por rol
+            // FILTRADO AUTOMÁTICO POR ROL
             if ($isEmployee) {
-                // Si es empleado, filtrar por nombre en personal_asignado
+                // Si es empleado (roles_id === 3), filtrar automáticamente por ID del usuario autenticado
+                // Buscar citas donde el empleado asignado coincida con este usuario
                 $nombreCompleto = trim($user->nombres . ' ' . $user->apellidos);
                 $query->where('personal_asignado', $nombreCompleto);
-            }
+            } elseif ($isBusiness) {
+                // Si es negocio (roles_id === 1 o 4)
+                if (isset($validated['empleado_id'])) {
+                    // Validar que el empleado pertenezca al negocio
+                    $empleado = User::where('id', $validated['empleado_id'])
+                        ->where('negocios_id', $user->negocios_id)
+                        ->first();
 
-            // Filtrar por empleado si es negocio y se especifica
-            if ($isBusiness && isset($validated['empleado_id'])) {
-                $empleado = User::find($validated['empleado_id']);
-                if ($empleado && $empleado->negocios_id == $user->negocios_id) {
+                    if (!$empleado) {
+                        return response()->json([
+                            'message' => 'El empleado no pertenece a este negocio'
+                        ], 422);
+                    }
+
+                    // Filtrar por empleado específico
                     $nombreEmpleado = trim($empleado->nombres . ' ' . $empleado->apellidos);
                     $query->where('personal_asignado', $nombreEmpleado);
                 }
+                // Si no se envía empleado_id, mostrar todos los empleados del negocio
             }
 
             // Aplicar filtros de fecha
@@ -805,8 +820,8 @@ class AppointmentController extends Controller
             foreach ($appointments as $appointment) {
                 // Obtener precio del servicio - Asegurar que no sea 0
                 $precio = 0;
-                if ($appointment->service) {
-                    $precio = (float) ($appointment->service->precio ?? 0);
+                if ($appointment->service && $appointment->service->precio) {
+                    $precio = (float) $appointment->service->precio;
                 }
 
                 // Si el precio es 0, intentar obtenerlo directamente de la base de datos
@@ -819,60 +834,46 @@ class AppointmentController extends Controller
 
                 $gananciaTotal += $precio;
 
-                // Obtener nombre del cliente
+                // Preparar datos del cliente
                 $clienteNombre = $appointment->cliente_nombre;
                 if (empty($clienteNombre) && $appointment->user) {
                     $clienteNombre = trim($appointment->user->nombres . ' ' . $appointment->user->apellidos);
                 }
-                if (empty($clienteNombre)) {
-                    $clienteNombre = 'N/A';
-                }
 
-                // Obtener nombre del servicio
-                $servicioNombre = 'N/A';
-                if ($appointment->service) {
-                    $servicioNombre = $appointment->service->nombre ?? 'N/A';
-                }
-
-                // Obtener empleado asignado
-                $empleadoAsignado = $appointment->personal_asignado ?? 'Sin asignar';
-
-                // Datos completos de cada cita - Formato plano para compatibilidad con frontend
+                // Estructura exacta según especificación
                 $citaDetallada = [
                     'id' => $appointment->id,
-                    // Formato plano para tabla (compatibilidad)
-                    'fecha' => $appointment->fecha->format('Y-m-d'),
-                    'hora' => $appointment->fecha->format('H:i'),
-                    'servicio' => $servicioNombre,
-                    'empleado' => $empleadoAsignado,
-                    'cliente' => $clienteNombre,
-                    'precio' => round($precio, 2),
-                    // Datos completos anidados (para futuras mejoras)
-                    'cliente_detalle' => [
-                        'nombre' => $clienteNombre,
+                    'fecha' => $appointment->fecha->format('Y-m-d H:i:s'),
+                    'fecha_fin' => $appointment->fecha_fin ? $appointment->fecha_fin->format('Y-m-d H:i:s') : null,
+                    'nota' => $appointment->nota,
+                    'cliente' => [
+                        'nombre' => $clienteNombre ?? 'N/A',
                         'email' => $appointment->cliente_email ?? ($appointment->user ? $appointment->user->email : null),
+                        'tipo_doc' => $appointment->cliente_tipo_doc ?? null,
+                        'num_doc' => $appointment->cliente_num_doc ?? null,
+                        'fecha_nac' => $appointment->cliente_fecha_nac ? $appointment->cliente_fecha_nac->format('Y-m-d') : null,
                         'telefono' => $appointment->cliente_telefono ?? ($appointment->user ? $appointment->user->celular : null),
                     ],
-                    'servicio_detalle' => [
-                        'id' => $appointment->servicios_id,
-                        'nombre' => $servicioNombre,
-                        'descripcion' => $appointment->service ? $appointment->service->descripcion : null,
+                    'service' => [
+                        'nombre' => $appointment->service ? $appointment->service->nombre : 'N/A',
                         'tiempo_estimado' => $appointment->service ? $appointment->service->tiempo_estimado : null,
+                        'precio' => (string) number_format($precio, 2, '.', ''),
+                        'descripcion' => $appointment->service ? $appointment->service->descripcion : null,
                     ],
-                    'empleado_asignado' => $empleadoAsignado,
-                    'fecha_detalle' => [
-                        'inicio' => $appointment->fecha->format('Y-m-d H:i:s'),
-                        'fin' => $appointment->fecha_fin ? $appointment->fecha_fin->format('Y-m-d H:i:s') : null,
-                        'fecha_solo' => $appointment->fecha->format('Y-m-d'),
-                        'hora' => $appointment->fecha->format('H:i'),
+                    'user' => $appointment->user ? [
+                        'nombres' => $appointment->user->nombres,
+                        'apellidos' => $appointment->user->apellidos,
+                        'email' => $appointment->user->email,
+                    ] : null,
+                    'status' => [
+                        'nombre' => $appointment->status ? $appointment->status->nombre : 'Confirmada',
                     ],
-                    'nota' => $appointment->nota,
                 ];
 
                 $citasDetalladas[] = $citaDetallada;
 
-                // Agrupar por fecha según el parámetro agrupar_por
-                $fechaKey = $this->getFechaKey($appointment->fecha, $agruparPor);
+                // Agrupar por fecha (siempre por día según especificación)
+                $fechaKey = $appointment->fecha->format('Y-m-d');
 
                 if (!isset($citasPorFecha[$fechaKey])) {
                     $citasPorFecha[$fechaKey] = 0;
@@ -900,16 +901,28 @@ class AppointmentController extends Controller
                 // Resumen por empleado (solo para negocios)
                 if ($isBusiness) {
                     $empleadoNombre = $appointment->personal_asignado ?? 'Sin asignar';
-                    if (!isset($resumenPorEmpleado[$empleadoNombre])) {
-                        $resumenPorEmpleado[$empleadoNombre] = [
-                            'nombre' => $empleadoNombre,
-                            'cantidad_citas' => 0,
-                            'ganancia_total' => 0,
-                            'ganancia_promedio' => 0
+
+                    // Intentar obtener el ID del empleado desde el nombre
+                    $empleadoId = null;
+                    if ($empleadoNombre && $empleadoNombre !== 'Sin asignar') {
+                        $empleadoUser = User::where('negocios_id', $user->negocios_id)
+                            ->whereRaw("CONCAT(nombres, ' ', apellidos) = ?", [$empleadoNombre])
+                            ->first();
+                        $empleadoId = $empleadoUser ? $empleadoUser->id : null;
+                    }
+
+                    $key = $empleadoId ?? $empleadoNombre;
+
+                    if (!isset($resumenPorEmpleado[$key])) {
+                        $resumenPorEmpleado[$key] = [
+                            'empleado_id' => $empleadoId,
+                            'empleado_nombre' => $empleadoNombre,
+                            'total_citas' => 0,
+                            'ganancia_total' => 0
                         ];
                     }
-                    $resumenPorEmpleado[$empleadoNombre]['cantidad_citas']++;
-                    $resumenPorEmpleado[$empleadoNombre]['ganancia_total'] += $precio;
+                    $resumenPorEmpleado[$key]['total_citas']++;
+                    $resumenPorEmpleado[$key]['ganancia_total'] += $precio;
                 }
             }
 
@@ -921,12 +934,9 @@ class AppointmentController extends Controller
                 }
             }
 
-            // Calcular promedios para empleados
+            // Redondear ganancias para empleados
             foreach ($resumenPorEmpleado as &$empleado) {
-                if ($empleado['cantidad_citas'] > 0) {
-                    $empleado['ganancia_promedio'] = round($empleado['ganancia_total'] / $empleado['cantidad_citas'], 2);
-                    $empleado['ganancia_total'] = round($empleado['ganancia_total'], 2);
-                }
+                $empleado['ganancia_total'] = round($empleado['ganancia_total'], 2);
             }
 
             // Convertir arrays asociativos a arrays indexados para gráficos
@@ -957,37 +967,24 @@ class AppointmentController extends Controller
             // Calcular estadísticas generales
             $promedioPorCita = $totalCitas > 0 ? round($gananciaTotal / $totalCitas, 2) : 0;
 
-            // Preparar respuesta completa
+            // Preparar respuesta según especificación exacta
             $response = [
                 'resumen' => [
                     'total_citas' => $totalCitas,
                     'ganancia_total' => round($gananciaTotal, 2),
-                    'ganancia_promedio_por_cita' => $promedioPorCita,
-                    'periodo' => [
-                        'tipo' => $tipoFecha,
-                        'fecha_inicio' => $fechaInicio ? $fechaInicio->format('Y-m-d') : null,
-                        'fecha_fin' => $fechaFin ? $fechaFin->format('Y-m-d') : null,
-                        'agrupar_por' => $agruparPor
-                    ]
+                    'promedio_por_cita' => $promedioPorCita,
                 ],
                 'graficos' => [
-                    'evolucion_temporal' => [
-                        'etiquetas' => array_column($datosGrafico, 'fecha'),
-                        'cantidad_citas' => array_column($datosGrafico, 'cantidad_citas'),
-                        'ganancias' => array_column($datosGrafico, 'ganancia'),
-                        'datos_completos' => $datosGrafico
-                    ],
-                    'servicios' => [
-                        'etiquetas' => array_column($serviciosArray, 'nombre'),
-                        'cantidades' => array_column($serviciosArray, 'cantidad'),
-                        'ganancias' => array_column($serviciosArray, 'ganancia_total'),
-                        'datos_completos' => array_slice($serviciosArray, 0, 10) // Top 10
-                    ]
+                    'datos_por_fecha' => $datosGrafico
                 ],
-                'citas' => $citasDetalladas,
-                'citas_detalladas' => $citasDetalladas, // Alias para compatibilidad
-                'resumen_por_empleado' => $isBusiness ? $empleadosArray : [],
-                'servicios_mas_realizados' => array_slice($serviciosArray, 0, 10) // Top 10
+                'citas_detalladas' => $citasDetalladas,
+                'servicios_mas_realizados' => array_map(function($servicio) {
+                    return [
+                        'nombre' => $servicio['nombre'],
+                        'cantidad' => $servicio['cantidad']
+                    ];
+                }, array_slice($serviciosArray, 0, 10)),
+                'resumen_por_empleado' => $isBusiness ? array_values($resumenPorEmpleado) : []
             ];
 
             return response()->json($response, 200);
