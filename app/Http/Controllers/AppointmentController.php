@@ -716,7 +716,9 @@ class AppointmentController extends Controller
             }
 
             // Cargar relación role
-            $user->load('role');
+            if (!$user->relationLoaded('role')) {
+                $user->load('role');
+            }
 
             // Obtener estado "Confirmada"
             $confirmedStatus = Status::where('nombre', 'Confirmada')->first();
@@ -742,17 +744,9 @@ class AppointmentController extends Controller
             $tipoFecha = $validated['tipo_fecha'] ?? 'mensual';
             $agruparPor = $validated['agrupar_por'] ?? 'dia';
 
-            // Construir query base - Optimizado: solo cargar relaciones necesarias
-            $query = Appointment::with([
-                'service:id,nombre,precio,descripcion,tiempo_estimado',
-                'user:id,nombres,apellidos,email,celular'
-            ])
-            ->select([
-                'id', 'usuarios_id', 'negocios_id', 'servicios_id', 'estados_id',
-                'fecha', 'fecha_fin', 'cliente_nombre', 'cliente_email',
-                'cliente_telefono', 'personal_asignado', 'nota'
-            ])
-            ->where('estados_id', $confirmedStatus->id);
+            // Construir query base - Cargar relaciones completas para asegurar precios
+            $query = Appointment::with(['service', 'user'])
+                ->where('estados_id', $confirmedStatus->id);
 
             // Filtrar por negocio (tenant)
             $query->where('negocios_id', $user->negocios_id);
@@ -811,13 +805,12 @@ class AppointmentController extends Controller
             foreach ($appointments as $appointment) {
                 // Obtener precio del servicio - Asegurar que no sea 0
                 $precio = 0;
-                if ($appointment->service && $appointment->service->precio) {
-                    $precio = (float) $appointment->service->precio;
+                if ($appointment->service) {
+                    $precio = (float) ($appointment->service->precio ?? 0);
                 }
 
-                // Si el precio es 0, intentar obtenerlo de otra forma o usar un valor por defecto
-                if ($precio == 0 && $appointment->service) {
-                    // Intentar obtener precio directamente de la base de datos
+                // Si el precio es 0, intentar obtenerlo directamente de la base de datos
+                if ($precio == 0 && $appointment->servicios_id) {
                     $service = \App\Models\Service::find($appointment->servicios_id);
                     if ($service && $service->precio) {
                         $precio = (float) $service->precio;
@@ -826,23 +819,48 @@ class AppointmentController extends Controller
 
                 $gananciaTotal += $precio;
 
-                // Datos completos de cada cita
+                // Obtener nombre del cliente
+                $clienteNombre = $appointment->cliente_nombre;
+                if (empty($clienteNombre) && $appointment->user) {
+                    $clienteNombre = trim($appointment->user->nombres . ' ' . $appointment->user->apellidos);
+                }
+                if (empty($clienteNombre)) {
+                    $clienteNombre = 'N/A';
+                }
+
+                // Obtener nombre del servicio
+                $servicioNombre = 'N/A';
+                if ($appointment->service) {
+                    $servicioNombre = $appointment->service->nombre ?? 'N/A';
+                }
+
+                // Obtener empleado asignado
+                $empleadoAsignado = $appointment->personal_asignado ?? 'Sin asignar';
+
+                // Datos completos de cada cita - Formato plano para compatibilidad con frontend
                 $citaDetallada = [
                     'id' => $appointment->id,
-                    'cliente' => [
-                        'nombre' => $appointment->cliente_nombre ?? ($appointment->user ? trim($appointment->user->nombres . ' ' . $appointment->user->apellidos) : 'N/A'),
+                    // Formato plano para tabla (compatibilidad)
+                    'fecha' => $appointment->fecha->format('Y-m-d'),
+                    'hora' => $appointment->fecha->format('H:i'),
+                    'servicio' => $servicioNombre,
+                    'empleado' => $empleadoAsignado,
+                    'cliente' => $clienteNombre,
+                    'precio' => round($precio, 2),
+                    // Datos completos anidados (para futuras mejoras)
+                    'cliente_detalle' => [
+                        'nombre' => $clienteNombre,
                         'email' => $appointment->cliente_email ?? ($appointment->user ? $appointment->user->email : null),
                         'telefono' => $appointment->cliente_telefono ?? ($appointment->user ? $appointment->user->celular : null),
                     ],
-                    'servicio' => [
+                    'servicio_detalle' => [
                         'id' => $appointment->servicios_id,
-                        'nombre' => $appointment->service ? $appointment->service->nombre : 'N/A',
+                        'nombre' => $servicioNombre,
                         'descripcion' => $appointment->service ? $appointment->service->descripcion : null,
                         'tiempo_estimado' => $appointment->service ? $appointment->service->tiempo_estimado : null,
                     ],
-                    'precio' => round($precio, 2),
-                    'empleado_asignado' => $appointment->personal_asignado ?? 'Sin asignar',
-                    'fecha' => [
+                    'empleado_asignado' => $empleadoAsignado,
+                    'fecha_detalle' => [
                         'inicio' => $appointment->fecha->format('Y-m-d H:i:s'),
                         'fin' => $appointment->fecha_fin ? $appointment->fecha_fin->format('Y-m-d H:i:s') : null,
                         'fecha_solo' => $appointment->fecha->format('Y-m-d'),
@@ -967,6 +985,7 @@ class AppointmentController extends Controller
                     ]
                 ],
                 'citas' => $citasDetalladas,
+                'citas_detalladas' => $citasDetalladas, // Alias para compatibilidad
                 'resumen_por_empleado' => $isBusiness ? $empleadosArray : [],
                 'servicios_mas_realizados' => array_slice($serviciosArray, 0, 10) // Top 10
             ];
