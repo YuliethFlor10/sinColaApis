@@ -9,6 +9,7 @@ use App\Traits\BelongsToTenant;
 class Appointment extends Model
 {
     use BelongsToTenant;
+    
     public const CREATED_AT = 'creado_en';
     public const UPDATED_AT = 'actualizado_en';
 
@@ -23,8 +24,6 @@ class Appointment extends Model
         'fecha_fin',
         'tiempo_estimado',
         'descripcion_cancel',
-
-        // 🔥 NUEVOS CAMPOS DE CLIENTE
         'cliente_nombre',
         'cliente_email',
         'cliente_tipo_doc',
@@ -33,8 +32,6 @@ class Appointment extends Model
         'cliente_telefono',
         'tipo_servicio',
         'personal_asignado',
-
-        // 🔥 CAMPOS DE TOKEN
         'confirmation_token',
         'token_expires_at',
     ];
@@ -54,7 +51,7 @@ class Appointment extends Model
     ];
 
     // ============================================
-    // RELACIONES
+    // 🔥 RELACIONES - CON SOLUCIÓN DE TENANT
     // ============================================
 
     public function user()
@@ -67,23 +64,29 @@ class Appointment extends Model
         return $this->belongsTo(Business::class, 'negocios_id');
     }
 
+    /**
+     * 🔥 SOLUCIÓN: Desactivar global scopes en service
+     */
     public function service()
     {
-        return $this->belongsTo(Service::class, 'servicios_id');
+        return $this->belongsTo(Service::class, 'servicios_id')
+            ->withoutGlobalScopes(); // ← ESTA ES LA CLAVE
     }
 
     public function status()
     {
-        return $this->belongsTo(Status::class, 'estados_id');
+        return $this->belongsTo(Status::class, 'estados_id')
+            ->withoutGlobalScopes(); // ← También para status por si acaso
     }
 
     public function agenda()
     {
-        return $this->belongsTo(Agenda::class, 'agendas_id');
+        return $this->belongsTo(Agenda::class, 'agendas_id')
+            ->withoutGlobalScopes(); // ← También para agenda
     }
 
     // ============================================
-    // SCOPES
+    // SCOPES (sin cambios)
     // ============================================
 
     public function scopeDelNegocio($query, $negocioId)
@@ -210,17 +213,10 @@ class Appointment extends Model
         return $query;
     }
 
-    // ============================================
-    // MÉTODOS AUXILIARES
-    // ============================================
-
-    /**
-     * Verificar si hay conflicto de horario
-     */
     public static function hasConflict($fecha, $fechaFin, $usuarioId, $excludeId = null)
     {
         $query = self::where('usuarios_id', $usuarioId)
-            ->where('estados_id', '!=', 3) // Excluir canceladas
+            ->where('estados_id', '!=', 3)
             ->where(function ($q) use ($fecha, $fechaFin) {
                 $q->whereBetween('fecha', [$fecha, $fechaFin])
                   ->orWhereBetween('fecha_fin', [$fecha, $fechaFin])
@@ -237,9 +233,6 @@ class Appointment extends Model
         return $query->exists();
     }
 
-    /**
-     * Calcular fecha_fin automáticamente
-     */
     public function calcularFechaFin()
     {
         if (!$this->fecha_fin && $this->fecha && $this->tiempo_estimado) {

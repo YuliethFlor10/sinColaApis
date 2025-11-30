@@ -21,6 +21,8 @@ class ServiceController extends Controller
                 ->orderBy('nombre', 'asc')
                 ->get();
 
+            Log::info('✅ Servicios obtenidos:', ['count' => $services->count()]);
+
             return response()->json($services, 200);
         } catch (\Exception $e) {
             Log::error('❌ Error al obtener servicios:', [
@@ -64,7 +66,6 @@ class ServiceController extends Controller
 
     /**
      * POST /api/services - Crear nuevo servicio
-     * 🔥 FIX: Acepta AMBOS 'duracion' y 'tiempo_estimado'
      */
     public function store(Request $request)
     {
@@ -72,96 +73,64 @@ class ServiceController extends Controller
             $user = Auth::user();
             $tenantId = $user->negocios_id;
 
-            // 🔥 LOG para debugging
-            Log::info('📥 Datos recibidos en store:', $request->all());
+            Log::info('📥 ===== CREAR SERVICIO =====');
+            Log::info('Usuario:', ['id' => $user->id, 'negocio_id' => $tenantId]);
+            Log::info('Request completo:', $request->all());
 
-            // 🔥 VALIDACIÓN: Acepta TANTO 'duracion' COMO 'tiempo_estimado'
+            // Validación
             $validated = $request->validate([
                 'nombre' => 'required|string|max:255',
                 'descripcion' => 'nullable|string',
                 'precio' => 'required|numeric|min:0',
-                // 🔥 Acepta ambos campos de duración
-                'duracion' => 'nullable|integer|min:1',
-                'tiempo_estimado' => 'nullable|integer|min:1',
-                // Acepta todos los formatos de categoría
-                'categoria' => 'nullable|exists:categories,id',
-                'categorias_id' => 'nullable|exists:categories,id',
-                'tipos_id' => 'nullable|exists:categories,id',
-                // Estados
-                'estado' => 'nullable|string|in:activo,inactivo',
-                'estados_id' => 'nullable|exists:statuses,id',
-                // Usuarios asignados
+                'tiempo_estimado' => 'required|integer|min:1', // 🔥 REQUERIDO
+                'tipos_id' => 'required|integer|exists:categories,id',
+                'estados_id' => 'required|integer|exists:statuses,id',
+                'negocios_id' => 'required|integer|exists:businesses,id',
                 'usuarios_asignados' => 'nullable|array',
-                'usuarios_asignados.*' => 'exists:users,id'
+                'usuarios_asignados.*' => 'integer|exists:users,id'
             ]);
 
-            // 🔥 VALIDACIÓN MANUAL: Al menos uno de los dos campos de duración debe existir
-            $duracion = $validated['duracion'] ?? $validated['tiempo_estimado'] ?? null;
+            Log::info('✅ Validación exitosa:', $validated);
 
-            if (!$duracion) {
-                return response()->json([
-                    'message' => 'Error de validación',
-                    'errors' => [
-                        'duracion' => ['El campo de duración es requerido (duracion o tiempo_estimado)']
-                    ]
-                ], 422);
-            }
-
-            Log::info('✅ Validación exitosa');
-
-            // 🔥 Determinar el ID de categoría
-            $categoriaId = $validated['categorias_id']
-                ?? $validated['tipos_id']
-                ?? $validated['categoria']
-                ?? null;
-
-            // 🔥 Determinar el ID de estado
-            $estadoId = $validated['estados_id'] ?? null;
-
-            if (!$estadoId && isset($validated['estado'])) {
-                $estadoId = $validated['estado'] === 'activo' ? 1 : 2;
-            }
-
-            $estadoId = $estadoId ?? 1;
-
-            Log::info('🔧 Datos procesados:', [
-                'categoriaId' => $categoriaId,
-                'estadoId' => $estadoId,
-                'duracion' => $duracion
-            ]);
-
-            // 🔥 Crear servicio
+            // Crear servicio
             $service = Service::create([
                 'nombre' => $validated['nombre'],
                 'descripcion' => $validated['descripcion'] ?? null,
                 'precio' => $validated['precio'],
-                'tiempo_estimado' => $duracion, // 🔥 Usa el valor que exista
-                'negocios_id' => $tenantId,
-                'tipos_id' => $categoriaId,
-                'estados_id' => $estadoId
+                'tiempo_estimado' => $validated['tiempo_estimado'],
+                'negocios_id' => $validated['negocios_id'],
+                'tipos_id' => $validated['tipos_id'],
+                'estados_id' => $validated['estados_id']
             ]);
 
-            Log::info('✅ Servicio creado en BD:', [
+            Log::info('✅ Servicio creado:', [
                 'id' => $service->id,
-                'nombre' => $service->nombre
+                'nombre' => $service->nombre,
+                'negocio_id' => $service->negocios_id
             ]);
 
-            // Asignar usuarios si se proporcionaron
+            // 🔥 ASIGNAR USUARIOS SI EXISTEN
             if (!empty($validated['usuarios_asignados'])) {
+                Log::info('👥 Asignando usuarios:', $validated['usuarios_asignados']);
+
+                // Validar que los usuarios pertenezcan al mismo negocio
                 $validUsers = User::whereIn('id', $validated['usuarios_asignados'])
                     ->where('negocios_id', $tenantId)
-                    ->whereIn('roles_id', [1, 3, 4])
+                    ->whereIn('roles_id', [1, 3, 4]) // Admin, Empleado, Propietario
                     ->pluck('id');
 
                 if ($validUsers->isNotEmpty()) {
                     $service->assignedUsers()->sync($validUsers);
                     Log::info('✅ Usuarios asignados:', $validUsers->toArray());
+                } else {
+                    Log::warning('⚠️ No se encontraron usuarios válidos para asignar');
                 }
             }
 
+            // Cargar relaciones
             $service->load(['category', 'status', 'business', 'assignedUsers']);
 
-            Log::info('✅ Servicio creado exitosamente con relaciones');
+            Log::info('✅ ===== SERVICIO CREADO EXITOSAMENTE =====');
 
             return response()->json($service, 201);
 
@@ -181,8 +150,7 @@ class ServiceController extends Controller
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString(),
-                'input' => $request->all()
+                'trace' => $e->getTraceAsString()
             ]);
 
             return response()->json([
@@ -198,7 +166,6 @@ class ServiceController extends Controller
 
     /**
      * PUT /api/services/{id} - Actualizar servicio
-     * 🔥 FIX: Acepta AMBOS 'duracion' y 'tiempo_estimado'
      */
     public function update(Request $request, $id)
     {
@@ -209,75 +176,46 @@ class ServiceController extends Controller
                 return response()->json(['message' => 'Servicio no encontrado'], 404);
             }
 
-            Log::info('📥 Actualizando servicio:', [
-                'id' => $id,
-                'data' => $request->all()
-            ]);
+            $user = Auth::user();
+            $tenantId = $user->negocios_id;
 
-            // 🔥 Validación flexible
+            Log::info('📝 ===== ACTUALIZAR SERVICIO =====');
+            Log::info('Servicio ID:', $id);
+            Log::info('Request:', $request->all());
+
+            // Validación
             $validated = $request->validate([
                 'nombre' => 'sometimes|string|max:255',
                 'descripcion' => 'nullable|string',
                 'precio' => 'sometimes|numeric|min:0',
-                // 🔥 Acepta ambos
-                'duracion' => 'nullable|integer|min:1',
-                'tiempo_estimado' => 'nullable|integer|min:1',
-                // Categorías
-                'categoria' => 'nullable|exists:categories,id',
-                'categorias_id' => 'nullable|exists:categories,id',
-                'tipos_id' => 'nullable|exists:categories,id',
-                // Estados
-                'estado' => 'nullable|string|in:activo,inactivo',
-                'estados_id' => 'nullable|exists:statuses,id',
-                // Usuarios
+                'tiempo_estimado' => 'sometimes|integer|min:1',
+                'tipos_id' => 'sometimes|integer|exists:categories,id',
+                'estados_id' => 'sometimes|integer|exists:statuses,id',
+                'negocios_id' => 'sometimes|integer|exists:businesses,id',
                 'usuarios_asignados' => 'nullable|array',
-                'usuarios_asignados.*' => 'exists:users,id'
+                'usuarios_asignados.*' => 'integer|exists:users,id'
             ]);
 
+            Log::info('✅ Validación exitosa');
+
+            // Actualizar campos
             $updateData = [];
 
-            if (isset($validated['nombre'])) {
-                $updateData['nombre'] = $validated['nombre'];
-            }
+            if (isset($validated['nombre'])) $updateData['nombre'] = $validated['nombre'];
+            if (isset($validated['descripcion'])) $updateData['descripcion'] = $validated['descripcion'];
+            if (isset($validated['precio'])) $updateData['precio'] = $validated['precio'];
+            if (isset($validated['tiempo_estimado'])) $updateData['tiempo_estimado'] = $validated['tiempo_estimado'];
+            if (isset($validated['tipos_id'])) $updateData['tipos_id'] = $validated['tipos_id'];
+            if (isset($validated['estados_id'])) $updateData['estados_id'] = $validated['estados_id'];
+            if (isset($validated['negocios_id'])) $updateData['negocios_id'] = $validated['negocios_id'];
 
-            if (isset($validated['descripcion'])) {
-                $updateData['descripcion'] = $validated['descripcion'];
-            }
-
-            if (isset($validated['precio'])) {
-                $updateData['precio'] = $validated['precio'];
-            }
-
-            // 🔥 Manejar duración (cualquier formato)
-            if (isset($validated['duracion'])) {
-                $updateData['tiempo_estimado'] = $validated['duracion'];
-            } elseif (isset($validated['tiempo_estimado'])) {
-                $updateData['tiempo_estimado'] = $validated['tiempo_estimado'];
-            }
-
-            // 🔥 Manejar categoría
-            if (isset($validated['categorias_id'])) {
-                $updateData['tipos_id'] = $validated['categorias_id'];
-            } elseif (isset($validated['tipos_id'])) {
-                $updateData['tipos_id'] = $validated['tipos_id'];
-            } elseif (isset($validated['categoria'])) {
-                $updateData['tipos_id'] = $validated['categoria'];
-            }
-
-            // 🔥 Manejar estado
-            if (isset($validated['estados_id'])) {
-                $updateData['estados_id'] = $validated['estados_id'];
-            } elseif (isset($validated['estado'])) {
-                $updateData['estados_id'] = $validated['estado'] === 'activo' ? 1 : 2;
-            }
-
-            Log::info('🔧 Datos a actualizar:', $updateData);
+            Log::info('📦 Datos a actualizar:', $updateData);
 
             $service->update($updateData);
 
+            // 🔥 ACTUALIZAR USUARIOS ASIGNADOS
             if (isset($validated['usuarios_asignados'])) {
-                $user = Auth::user();
-                $tenantId = $user->negocios_id;
+                Log::info('👥 Actualizando usuarios asignados:', $validated['usuarios_asignados']);
 
                 $validUsers = User::whereIn('id', $validated['usuarios_asignados'])
                     ->where('negocios_id', $tenantId)
@@ -288,9 +226,10 @@ class ServiceController extends Controller
                 Log::info('✅ Usuarios actualizados:', $validUsers->toArray());
             }
 
+            // Cargar relaciones
             $service->load(['category', 'status', 'business', 'assignedUsers']);
 
-            Log::info('✅ Servicio actualizado exitosamente');
+            Log::info('✅ ===== SERVICIO ACTUALIZADO =====');
 
             return response()->json($service, 200);
 
@@ -328,11 +267,16 @@ class ServiceController extends Controller
                 return response()->json(['message' => 'Servicio no encontrado'], 404);
             }
 
-            Log::info('🗑️ Eliminando servicio:', ['id' => $id]);
+            Log::info('🗑️ ===== ELIMINAR SERVICIO =====');
+            Log::info('Servicio ID:', $id);
+            Log::info('Nombre:', $service->nombre);
 
+            // Desasociar usuarios antes de eliminar
             $service->assignedUsers()->detach();
-            $service->delete();
+            Log::info('✅ Usuarios desasociados');
 
+            // Eliminar servicio
+            $service->delete();
             Log::info('✅ Servicio eliminado correctamente');
 
             return response()->json(['message' => 'Servicio eliminado correctamente'], 200);

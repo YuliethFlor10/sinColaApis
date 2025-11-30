@@ -60,8 +60,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [UserController::class, 'index']);
         Route::get('/staff/available', [UserController::class, 'getStaff']);
 
-        // Para dropdown en informes
-        Route::get('/for-reports', [UserController::class, 'getUsersForReports']);
+        // 🔥 Para dropdown en informes
+        Route::get('/for-reports', [ReportController::class, 'getUsersForReports']);
 
         Route::get('/{id}', [UserController::class, 'show']);
         Route::post('/', [UserController::class, 'store']);
@@ -112,7 +112,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // ========================================
-    // PERSONALIZACIÓN (🔥 NUEVO Y FUNCIONAL)
+    // PERSONALIZACIÓN
     // ========================================
     Route::prefix('customizations')->group(function () {
         // Obtener personalización por negocio
@@ -129,11 +129,14 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // ========================================
-    // REPORTES
+    // REPORTES 🔥 ACTUALIZADO
     // ========================================
     Route::prefix('reports')->group(function () {
-        Route::post('/', [ReportController::class, 'generateReport']);   // Generar reporte completo
-        Route::get('/quick-stats', [ReportController::class, 'quickStats']); // Estadísticas rápidas
+        // Generar reporte completo
+        Route::post('/', [ReportController::class, 'generateReport']);
+        
+        // Estadísticas rápidas
+        Route::get('/quick-stats', [ReportController::class, 'getQuickStats']);
     });
 
 });

@@ -9,19 +9,26 @@ use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;  // 🔥 AGREGAR ESTO
+use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use App\Mail\AppointmentConfirmation;
 
 class AppointmentController extends Controller
 {
     /**
-     * GET /api/appointments - 🔥 FILTRADO AUTOMÁTICO POR TENANT
+     * GET /api/appointments - 🔥 CON EAGER LOADING DE RELACIONES
      */
     public function index(Request $request)
     {
         try {
-            $query = Appointment::with(['user', 'business', 'status', 'service', 'agenda'])
+            // 🔥 CAMBIO CRÍTICO: Cargar TODAS las relaciones necesarias
+            $query = Appointment::with([
+                'user',
+                'business', 
+                'status',
+                'service',   // 🎯 Esta es la clave que faltaba
+                'agenda'
+            ])
                 ->filtrar($request->all())
                 ->orderBy('fecha', 'desc');
 
@@ -37,7 +44,7 @@ class AppointmentController extends Controller
     }
 
     /**
-     * GET /api/appointments/{id} - 🔥 SOLO DEL TENANT
+     * GET /api/appointments/{id} - CON RELACIONES
      */
     public function show($id)
     {
@@ -64,7 +71,6 @@ class AppointmentController extends Controller
     public function store(Request $request)
     {
         try {
-            // 🔥 Detectar si es ruta pública o protegida - CORREGIDO
             $user = Auth::user();
             $esPublico = !$user;
 
@@ -92,19 +98,16 @@ class AppointmentController extends Controller
                 'tiempo_estimado' => 'nullable|integer'
             ];
 
-            // Si es público, negocios_id es REQUERIDO
             if ($esPublico) {
                 $rules['negocios_id'] = 'required|exists:businesses,id';
             }
 
             $validated = $request->validate($rules);
 
-            // Obtener tenant según contexto
             $tenantId = $esPublico
                 ? $validated['negocios_id']
                 : $user->negocios_id;
 
-            // Buscar o crear usuario EN EL MISMO TENANT
             $userCliente = User::where('email', $validated['email'])
                 ->where('negocios_id', $tenantId)
                 ->first();
@@ -146,7 +149,6 @@ class AppointmentController extends Controller
                 ]);
             }
 
-            // Preparar datos del cliente
             if (!empty($validated['nombre'])) {
                 $clienteNombre = $validated['nombre'];
             } else {
@@ -173,7 +175,6 @@ class AppointmentController extends Controller
             $tiempoEstimado = $validated['tiempo_estimado'] ?? 60;
             $fechaFin = $fechaCompleta->copy()->addMinutes($tiempoEstimado);
 
-            // Verificar conflictos
             if (Appointment::where('negocios_id', $tenantId)
                 ->where('usuarios_id', $userCliente->id)
                 ->where('estados_id', '!=', 5)
@@ -210,9 +211,9 @@ class AppointmentController extends Controller
                 'personal_asignado' => $validated['personal_servicio'] ?? null
             ]);
 
+            // 🔥 CARGAR RELACIONES DESPUÉS DE CREAR
             $appointment->load(['user', 'business', 'status', 'service', 'agenda']);
 
-            // Enviar correo
             $emailSent = false;
             $emailError = null;
 
@@ -287,7 +288,6 @@ class AppointmentController extends Controller
                 $tiempoEstimado = $validated['tiempo_estimado'] ?? $appointment->tiempo_estimado;
                 $fechaFin = $fechaCompleta->copy()->addMinutes($tiempoEstimado);
 
-                // 🔥 Verificar conflictos si está autenticado - CORREGIDO
                 $user = Auth::user();
                 if ($user) {
                     $tenantId = $user->negocios_id;
